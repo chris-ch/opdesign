@@ -1,4 +1,7 @@
+.uuid
 .cabal-sandbox
 cabal.sandbox.config
 dist
 .idea
+stack.yaml
+*.hsplay
