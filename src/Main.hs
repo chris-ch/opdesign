@@ -2,13 +2,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Prelude (IO, Ord, Ordering, Bool, fmap, compare, ($), filter, print, mapM)
+import Prelude (IO, Ord, Ordering, Bool, fmap, compare, ($), (==), filter, print, mapM)
 import Codec.Archive.Zip (EntrySelector, ZipArchive, withArchive, getEntry, getEntries, getEntryName)
 import Path (Path, Abs, File)
 import Data.Maybe (isJust)
 import Path.IO (resolveFile')
 import Data.List (sortBy)
-import Data.Text (Text, unpack)
+import Data.Text (Text, pack, unpack, splitOn)
+import Data.Text.Encoding (decodeUtf8)
 import Text.Regex (Regex, matchRegex, mkRegex)
 import Data.ByteString.Char8 (concat)
 import Data.Map (keys)
@@ -40,4 +41,7 @@ main = do
     print csvEntries
     let ticks = loadTicks ticksArchivePath :: EntrySelector -> IO ByteString
     contents <- mapM ticks csvEntries :: IO [ByteString]
-    print $ concat contents        
+    let ticks = decodeUtf8 $ concat contents :: Text
+    let lineSep = pack "\r\n" :: Text
+    print $ splitOn lineSep ticks
+    
