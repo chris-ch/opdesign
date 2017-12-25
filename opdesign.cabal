@@ -18,13 +18,15 @@ Executable opdesign
   main-is: Main.hs
   buildable: True
   build-depends:
+      bytestring -any,
       path-io -any,
-      containers -any,
       path -any,
       text -any,
       zip -any,
+      conduit -any,
       base -any,
       regex-compat -any,
-      bytestring -any
+      conduit-extra -any,
+      containers -any
   default-language: Haskell2010
   hs-source-dirs: src
