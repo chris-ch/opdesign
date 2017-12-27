@@ -61,5 +61,5 @@ processTicks ticksFile csvFilePattern tickProcessor = do
     let csvEntries = sortBy customSort $ filter (isTickFile $ csvFilePattern) entries :: [EntrySelector]
     print csvEntries
     let ticks = processTicksFiles ticksArchivePath $ tickProcessor . tickFields . dos2unix . unpack
-    contents <- mapM ticks csvEntries :: IO [()]
+    contents <- mapM_ ticks csvEntries :: IO ()
     return ()
