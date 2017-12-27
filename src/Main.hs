@@ -23,5 +23,5 @@ main = do
     parsedArguments <- cmdArgsRun commandLine
     print $ pattern parsedArguments
     print $ ticks parsedArguments
-    processTicks (ticks parsedArguments) (pattern parsedArguments)
+    processTicks (ticks parsedArguments) (pattern parsedArguments) print
     

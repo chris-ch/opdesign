@@ -16,6 +16,15 @@ import Data.Conduit ((=$=))
 import qualified Data.Conduit.List as CL
 import qualified Data.Conduit.Text as CT
 
+-- Example: "2014-10-28 06:53:05.000000,TRADE,8938.5,0.0,S"
+data TickData = TickData {
+    date :: String,
+    tickType :: String,
+    price :: String,
+    volume :: String,
+    flag :: String
+    } deriving (Show)
+
 processTicksFiles :: Path Abs File -> (Text -> IO()) -> EntrySelector -> IO ()
 processTicksFiles ticksArchivePath processLine entry = withArchive ticksArchivePath $ do
     sourceEntry entry $ CT.decode CT.utf8
@@ -31,20 +40,26 @@ extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries
 customSort :: Ord a => a -> a -> Ordering
 customSort elem1 elem2 = compare elem1 elem2
 
+-- checks whether we are processing a valid csv file containing ticks data
 isTickFile :: String -> EntrySelector -> Bool
 isTickFile tickFilePattern entry = isJust $ matchRegex (mkRegex tickFilePattern) (unpack entryName)
     where
         entryName = getEntryName entry :: Text
 
-dos2unix :: Text -> Text
-dos2unix = pack . dropWhileEnd (== '\r') . unpack
+-- drops possible '\r' endings
+dos2unix :: String -> String
+dos2unix = dropWhileEnd (== '\r')
 
-processTicks :: String -> String -> IO ()
-processTicks ticksFile csvFilePattern = do
+tickFields :: String -> TickData
+tickFields line = TickData { date = fields!!0, tickType = fields!!1, price = fields!!2, volume = fields!!3, flag = fields!!4}
+    where fields = map unpack . splitOn "," $ pack line
+
+processTicks :: String -> String -> (TickData -> IO ()) -> IO ()
+processTicks ticksFile csvFilePattern tickProcessor = do
     ticksArchivePath <- resolveFile' $ ticksFile :: IO (Path Abs File)
     entries <- extractEntries ticksArchivePath :: IO [EntrySelector]
     let csvEntries = sortBy customSort $ filter (isTickFile $ csvFilePattern) entries :: [EntrySelector]
     print csvEntries
-    let ticks = processTicksFiles ticksArchivePath (print . dos2unix)
+    let ticks = processTicksFiles ticksArchivePath $ tickProcessor . tickFields . dos2unix . unpack
     contents <- mapM ticks csvEntries :: IO [()]
     return ()
