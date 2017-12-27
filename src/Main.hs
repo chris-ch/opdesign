@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fno-cse #-}
 module Main where
 
-import Prelude (FilePath, IO, Ord, Ordering, Bool, String, Show, fmap, compare, (.), ($), (==), (++), filter, print, mapM, putStrLn, show, return) 
+import Prelude (FilePath, IO, Ord, Ordering, Bool, String, Show, fmap, compare, (.), ($), (==), (++), (=<<),  filter, print, mapM, putStrLn, show, return) 
 import Codec.Archive.Zip (EntrySelector, ZipArchive, withArchive, sourceEntry, getEntries, getEntryName)
 import Path (Path, Abs, File)
 import Data.Data (Data, Typeable)
@@ -18,20 +18,18 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Conduit ((=$=))
 import qualified Data.Conduit.List as CL
 import qualified Data.Conduit.Text as CT
-import System.Console.CmdArgs (cmdArgs, def, help, opt, summary, (&=))
+import System.Console.CmdArgs (cmdArgs, def, help, opt, summary, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
 
-{-
 data CommandLine = CommandLine {
     pattern :: String,
-    tickFile :: FilePath
+    ticks :: FilePath
     } deriving (Show, Data, Typeable)
 
-commandLine = CommandLine{
-    pattern = def &= opt ".*csv$" &= help "pattern for CSV files within archive",
-    tickFile = def &= help "ticks archive"
-    } &= summary "Ticks data extraction"
- -}
-         
+commandLine = cmdArgsMode CommandLine{
+    pattern = def &= help "pattern for CSV files within archive",
+    ticks = def &= argPos 0 &= typ "ARCHIVE"
+    }
+    
 processTicks :: Path Abs File -> (Text -> IO()) -> EntrySelector -> IO ()
 processTicks ticksArchivePath processLine entry = withArchive ticksArchivePath $ do
     sourceEntry entry $ CT.decode CT.utf8
@@ -57,11 +55,12 @@ dos2unix = pack . dropWhileEnd (== '\r') . unpack
 
 main :: IO ()
 main = do
-    --cmdArgs commandLine
-    ticksArchivePath <- resolveFile' "data/data-small.zip" :: IO (Path Abs File)
-    --ticksArchivePath <- resolveFile' "data/GX1%20Index.zip" :: IO (Path Abs File)
+    parsedArguments <- cmdArgsRun commandLine
+    print $ pattern parsedArguments
+    print $ ticks parsedArguments
+    ticksArchivePath <- resolveFile' $ ticks parsedArguments :: IO (Path Abs File)
     entries <- extractEntries ticksArchivePath :: IO [EntrySelector]
-    let csvEntries = sortBy customSort $ filter (isTickFile "/20.*csv$") entries :: [EntrySelector]
+    let csvEntries = sortBy customSort $ filter (isTickFile $ pattern parsedArguments) entries :: [EntrySelector]
     print csvEntries
     let ticks = processTicks ticksArchivePath (print . dos2unix)
     contents <- mapM ticks csvEntries :: IO [()]
