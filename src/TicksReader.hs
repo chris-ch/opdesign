@@ -15,13 +15,30 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Conduit ((=$=))
 import qualified Data.Conduit.List as CL
 import qualified Data.Conduit.Text as CT
+import Numeric (readFloat, readSigned, fromRat, showFFloat)
+import Data.Time
 
+data TickType = Trade | BestBid | BestAsk deriving (Show, Eq)
+
+parseTickType :: String -> TickType
+parseTickType "TRADE" = Trade
+parseTickType "BEST_BID" = BestBid
+parseTickType "BEST_ASK" = BestAsk
+
+newtype Price = Price Rational deriving (Eq, Ord)
+instance Show Price where
+    show (Price price) = (showFFloat (Just 6) $ fromRat price) ""
+    
+newtype Volume = Volume Int deriving (Eq, Ord)
+instance Show Volume where
+    show (Volume volume) = show volume
+    
 -- Example: "2014-10-28 06:53:05.000000,TRADE,8938.5,0.0,S"
 data TickData = TickData {
-    date :: String,
-    tickType :: String,
-    price :: String,
-    volume :: String,
+    date :: UTCTime,
+    tickType :: TickType,
+    price :: Price,
+    volume :: Volume,
     flag :: String
     } deriving (Show)
 
@@ -51,8 +68,14 @@ dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
 tickFields :: String -> TickData
-tickFields line = TickData { date = fields!!0, tickType = fields!!1, price = fields!!2, volume = fields!!3, flag = fields!!4}
-    where fields = map unpack . splitOn "," $ pack line
+tickFields line = TickData { date = fieldDate, tickType = fieldTickType, price = fieldPrice, volume = fieldVolume, flag = fieldFlag}
+    where
+        fields = map unpack . splitOn "," $ pack line
+        fieldDate = (read $ fields!!0)::UTCTime
+        fieldTickType = parseTickType $ fields!!1
+        fieldPrice = Price $ fst . head $ readSigned readFloat $ fields!!2
+        fieldVolume = Volume $ truncate (read $ fields!!3 :: Float)
+        fieldFlag = fields!!4
 
 processTicks :: String -> String -> (TickData -> IO ()) -> IO ()
 processTicks ticksFile csvFilePattern tickProcessor = do
@@ -63,3 +86,4 @@ processTicks ticksFile csvFilePattern tickProcessor = do
     let ticks = processTicksFiles ticksArchivePath $ tickProcessor . tickFields . dos2unix . unpack
     contents <- mapM_ ticks csvEntries :: IO ()
     return ()
+    

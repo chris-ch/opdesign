@@ -23,9 +23,10 @@ Executable opdesign
       text -any,
       zip -any,
       conduit -any,
-      cmdargs -any,
       base -any,
+      cmdargs -any,
       regex-compat -any,
+      time -any,
       conduit-extra -any,
       containers -any
   default-language: Haskell2010
