@@ -23,6 +23,7 @@ Executable opdesign
       text -any,
       zip -any,
       conduit -any,
+      cmdargs -any,
       base -any,
       regex-compat -any,
       conduit-extra -any,

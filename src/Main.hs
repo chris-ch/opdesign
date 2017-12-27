@@ -1,10 +1,13 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# OPTIONS_GHC -fno-cse #-}
 module Main where
 
-import Prelude (IO, Ord, Ordering, Bool, String, fmap, compare, (.), ($), (==), (++), filter, print, mapM, putStrLn, show, return)
+import Prelude (FilePath, IO, Ord, Ordering, Bool, String, Show, fmap, compare, (.), ($), (==), (++), filter, print, mapM, putStrLn, show, return) 
 import Codec.Archive.Zip (EntrySelector, ZipArchive, withArchive, sourceEntry, getEntries, getEntryName)
 import Path (Path, Abs, File)
+import Data.Data (Data, Typeable)
 import Data.Maybe (isJust)
 import Path.IO (resolveFile')
 import Data.List (sortBy, dropWhileEnd)
@@ -15,7 +18,20 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Conduit ((=$=))
 import qualified Data.Conduit.List as CL
 import qualified Data.Conduit.Text as CT
+import System.Console.CmdArgs (cmdArgs, def, help, opt, summary, (&=))
 
+{-
+data CommandLine = CommandLine {
+    pattern :: String,
+    tickFile :: FilePath
+    } deriving (Show, Data, Typeable)
+
+commandLine = CommandLine{
+    pattern = def &= opt ".*csv$" &= help "pattern for CSV files within archive",
+    tickFile = def &= help "ticks archive"
+    } &= summary "Ticks data extraction"
+ -}
+         
 processTicks :: Path Abs File -> (Text -> IO()) -> EntrySelector -> IO ()
 processTicks ticksArchivePath processLine entry = withArchive ticksArchivePath $ do
     sourceEntry entry $ CT.decode CT.utf8
@@ -41,6 +57,7 @@ dos2unix = pack . dropWhileEnd (== '\r') . unpack
 
 main :: IO ()
 main = do
+    --cmdArgs commandLine
     ticksArchivePath <- resolveFile' "data/data-small.zip" :: IO (Path Abs File)
     --ticksArchivePath <- resolveFile' "data/GX1%20Index.zip" :: IO (Path Abs File)
     entries <- extractEntries ticksArchivePath :: IO [EntrySelector]
