@@ -18,7 +18,6 @@ Executable opdesign
   main-is: Main.hs
   buildable: True
   build-depends:
-      bytestring -any,
       path-io -any,
       path -any,
       text -any,
