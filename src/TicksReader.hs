@@ -1,12 +1,9 @@
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
 module TicksReader where
 
-import Prelude (FilePath, IO, Ord, Ordering, Bool, String, Show, fmap, compare, (.), ($), (==), (++), (=<<),  filter, print, mapM, putStrLn, show, return) 
 import Codec.Archive.Zip (EntrySelector, ZipArchive, withArchive, sourceEntry, getEntries, getEntryName)
-import Data.Data (Data, Typeable)
 import Path (Path, Abs, File)
 import Data.Maybe (isJust)
 import Path.IO (resolveFile')
@@ -18,7 +15,6 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Conduit ((=$=))
 import qualified Data.Conduit.List as CL
 import qualified Data.Conduit.Text as CT
-import System.Console.CmdArgs (cmdArgs, def, help, opt, summary, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
 
 processTicksFiles :: Path Abs File -> (Text -> IO()) -> EntrySelector -> IO ()
 processTicksFiles ticksArchivePath processLine entry = withArchive ticksArchivePath $ do
@@ -43,6 +39,7 @@ isTickFile tickFilePattern entry = isJust $ matchRegex (mkRegex tickFilePattern)
 dos2unix :: Text -> Text
 dos2unix = pack . dropWhileEnd (== '\r') . unpack
 
+processTicks :: String -> String -> IO ()
 processTicks ticksFile csvFilePattern = do
     ticksArchivePath <- resolveFile' $ ticksFile :: IO (Path Abs File)
     entries <- extractEntries ticksArchivePath :: IO [EntrySelector]
@@ -51,4 +48,3 @@ processTicks ticksFile csvFilePattern = do
     let ticks = processTicksFiles ticksArchivePath (print . dos2unix)
     contents <- mapM ticks csvEntries :: IO [()]
     return ()
-
