@@ -22,9 +22,8 @@ import OrderBook (TickData, tickFields)
 
 processTicksFiles :: Path Abs File -> (Text -> IO()) -> EntrySelector -> IO ()
 processTicksFiles ticksArchivePath processLine entry = withArchive ticksArchivePath $ do
-    sourceEntry entry $ CText.decode CText.utf8
-            =$= CText.lines
-            =$= CList.mapM_ (\line -> liftIO $ processLine line)
+    sourceEntry entry $
+        CText.decode CText.utf8 =$= CText.lines =$= CList.mapM_ (liftIO . processLine)
     
 extractEntries :: Path Abs File -> IO [EntrySelector]
 extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries

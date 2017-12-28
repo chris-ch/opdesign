@@ -5,7 +5,7 @@
 module Main where
 
 import Data.Data (Data, Typeable)
-import System.Console.CmdArgs (cmdArgs, def, help, opt, summary, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
+import System.Console.CmdArgs (def, help, opt, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
 import TicksReader (processTicks)
 import OrderBook (emptyOrderBook, updateOrderBook)
 
