@@ -28,5 +28,5 @@ main = do
     print $ pattern parsedArguments
     print $ ticks parsedArguments
     let ticksData = processTicks (ticks parsedArguments) (pattern parsedArguments) :: (TickData -> IO ()) -> IO ()
-    ticksData $ print . tickProcessor
+    ticksData $ tickProcessor >> print
     
