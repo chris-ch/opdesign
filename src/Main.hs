@@ -7,7 +7,7 @@ module Main where
 import Data.Data (Data, Typeable)
 import System.Console.CmdArgs (def, help, opt, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
 import TicksReader (processTicks)
-import OrderBook (emptyOrderBook, updateOrderBook)
+import OrderBook (OrderBook, TickData, emptyOrderBook, updateOrderBook)
 
 data CommandLine = CommandLine {
     pattern :: String,
@@ -19,11 +19,13 @@ commandLine = cmdArgsMode CommandLine{
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
 
+tickProcessor :: TickData -> OrderBook
+tickProcessor tickData = updateOrderBook emptyOrderBook tickData
+
 main :: IO ()
 main = do
     parsedArguments <- cmdArgsRun commandLine
     print $ pattern parsedArguments
     print $ ticks parsedArguments
-    let initialOrderBook = emptyOrderBook
-    processTicks (ticks parsedArguments) (pattern parsedArguments) $ \tickData -> print $ updateOrderBook initialOrderBook tickData
+    processTicks (ticks parsedArguments) (pattern parsedArguments) $ print . tickProcessor
     
