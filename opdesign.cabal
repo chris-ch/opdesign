@@ -33,3 +33,4 @@ Executable opdesign
   hs-source-dirs: src
   other-modules:
       TicksReader
+      OrderBook
