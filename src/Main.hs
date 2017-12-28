@@ -27,5 +27,6 @@ main = do
     parsedArguments <- cmdArgsRun commandLine
     print $ pattern parsedArguments
     print $ ticks parsedArguments
-    processTicks (ticks parsedArguments) (pattern parsedArguments) $ print . tickProcessor
+    let ticksData = processTicks (ticks parsedArguments) (pattern parsedArguments) :: (TickData -> IO ()) -> IO ()
+    ticksData $ print . tickProcessor
     
