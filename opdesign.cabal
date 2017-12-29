@@ -22,6 +22,7 @@ Executable opdesign
       path -any,
       text -any,
       zip -any,
+      conduit-combinators -any,
       conduit -any,
       base -any,
       cmdargs -any,
