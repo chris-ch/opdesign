@@ -13,7 +13,7 @@ import Text.Regex (Regex, matchRegex, mkRegex)
 import Data.Map (keys)
 import Control.Monad.IO.Class (liftIO)
 import Conduit ((.|), ConduitM, Sink, mapM_C, mapMC, mapC, decodeUtf8C)
---import Data.ByteString (ByteString)
+-- import Data.ByteString (ByteString)
 import Data.Void (Void)
 import qualified Data.Conduit.Text as CText (lines)
 import Data.Time (UTCTime)
@@ -24,17 +24,16 @@ import OrderBook (TickData, OrderBook, tickFields)
 dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
---ticksPipe :: (TickData -> IO ()) -> ConduitM ByteString (IO ()) IO ()
-ticksPipe tickProcessor = decodeUtf8C
+--streamTicks :: ConduitM ByteString TickData IO ()
+streamTicks = decodeUtf8C
         .| CText.lines
         .| mapC unpack
         .| mapC dos2unix
         .| mapC tickFields
-        .| mapC tickProcessor
-
+        
 processTicksFiles :: Path Abs File -> (TickData -> IO()) -> EntrySelector -> IO ()
 processTicksFiles ticksArchivePath tickProcessor entry = withArchive ticksArchivePath $ do
-    sourceEntry entry $ ticksPipe tickProcessor .| mapM_C liftIO
+    sourceEntry entry $ streamTicks .| mapC tickProcessor .| mapM_C liftIO
     
 -- not really useful since only natural ordering is required
 customSort :: Ord a => a -> a -> Ordering
