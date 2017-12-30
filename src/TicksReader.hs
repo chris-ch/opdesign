@@ -12,7 +12,7 @@ import Data.Text (Text, pack, unpack)
 import Text.Regex (Regex, matchRegex, mkRegex)
 import Data.Map (keys)
 import Control.Monad.IO.Class (liftIO)
-import Conduit ((.|), ConduitM, Sink, mapM_C, mapMC, mapC, decodeUtf8C)
+import Conduit ((.|), ConduitM, Sink, yieldMany, runConduit, mapM_C, mapMC, mapC, iterMC, decodeUtf8C)
 -- import Data.ByteString (ByteString)
 import Data.Void (Void)
 import qualified Data.Conduit.Text as CText (lines)
@@ -50,11 +50,9 @@ extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries
     where
         loadEntries = fmap keys getEntries :: ZipArchive [EntrySelector]
 
-processTicks :: String -> String -> (TickData -> IO ()) -> IO ()
+--processTicks :: String -> String -> (TickData -> IO ()) -> IO ()
 processTicks ticksFile csvFilePattern tickProcessor = do
     ticksArchivePath <- resolveFile' $ ticksFile :: IO (Path Abs File)
     entries <- extractEntries ticksArchivePath :: IO [EntrySelector]
-    let csvEntries = sortBy customSort $ filter (isTickFile $ csvFilePattern) entries :: [EntrySelector]
-    let processEntryTicks = processTicksFiles ticksArchivePath tickProcessor :: EntrySelector -> IO ()
-    mapM_ processEntryTicks csvEntries :: IO ()
-    
+    let csvEntries = sortBy customSort $ filter (isTickFile csvFilePattern) entries :: [EntrySelector]
+    runConduit $ yieldMany csvEntries .| mapM_C (processTicksFiles ticksArchivePath tickProcessor)    
