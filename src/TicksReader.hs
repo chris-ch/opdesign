@@ -13,7 +13,7 @@ import Text.Regex (Regex, matchRegex, mkRegex)
 import Data.Map (keys)
 import Control.Monad.IO.Class (liftIO)
 import Conduit ((.|), mapM_C, mapMC, mapC)
-import qualified Data.Conduit.Text as CText
+import qualified Data.Conduit.Text as CText (lines, decode, utf8)
 import Data.Time (UTCTime)
 
 import OrderBook (TickData, tickFields)
