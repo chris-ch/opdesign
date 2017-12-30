@@ -32,8 +32,13 @@ data TickData = TickData {
     } deriving (Show)
 
 tickFields :: String -> TickData
-tickFields line = TickData { date = fieldDate, tickType = fieldTickType, price = fieldPrice, volume = fieldVolume, flag = fieldFlag}
-    where
+tickFields line = TickData {
+    date = fieldDate,
+    tickType = fieldTickType,
+    price = fieldPrice,
+    volume = fieldVolume,
+    flag = fieldFlag
+    } where
         fields = map unpack . splitOn "," $ pack line
         fieldDate = (read $ fields!!0)::UTCTime
         fieldTickType = parseTickType $ fields!!1
@@ -48,7 +53,12 @@ data OrderBook = OrderBook {
     askVolume :: Maybe Volume} deriving (Show, Eq)
 
 emptyOrderBook :: OrderBook
-emptyOrderBook = OrderBook { bidVolume = Nothing, bidPrice = Nothing, askPrice = Nothing, askVolume = Nothing }
+emptyOrderBook = OrderBook {
+    bidVolume = Nothing,
+    bidPrice = Nothing,
+    askPrice = Nothing,
+    askVolume = Nothing
+    }
 
 updateOrderBook :: OrderBook -> TickData -> OrderBook
 updateOrderBook prevOrderBook newTick
