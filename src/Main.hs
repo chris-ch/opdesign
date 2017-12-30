@@ -19,14 +19,16 @@ commandLine = cmdArgsMode CommandLine{
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
 
-tickProcessor :: TickData -> OrderBook
-tickProcessor tickData = updateOrderBook emptyOrderBook tickData
-
+tickProcessor :: TickData -> IO ()
+tickProcessor tickData = do
+     let orderBook = updateOrderBook emptyOrderBook tickData
+     print orderBook
+    
 main :: IO ()
 main = do
     parsedArguments <- cmdArgsRun commandLine
     print $ pattern parsedArguments
     print $ ticks parsedArguments
     let ticksData = processTicks (ticks parsedArguments) (pattern parsedArguments) :: (TickData -> IO ()) -> IO ()
-    ticksData $ tickProcessor >> print
+    ticksData tickProcessor
     

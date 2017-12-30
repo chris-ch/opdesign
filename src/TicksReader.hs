@@ -12,25 +12,29 @@ import Data.Text (Text, pack, unpack)
 import Text.Regex (Regex, matchRegex, mkRegex)
 import Data.Map (keys)
 import Control.Monad.IO.Class (liftIO)
-import Conduit ((.|), mapM_C, mapMC, mapC)
+import Conduit ((.|), ConduitM, Sink, mapM_C, mapMC, mapC)
+--import Data.ByteString (ByteString)
+import Data.Void (Void)
 import qualified Data.Conduit.Text as CText (lines, decode, utf8)
 import Data.Time (UTCTime)
 
-import OrderBook (TickData, tickFields)
+import OrderBook (TickData, OrderBook, tickFields)
 
 -- drops possible '\r' endings
 dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
-processTicksFiles :: Path Abs File -> (TickData -> IO()) -> EntrySelector -> IO ()
-processTicksFiles ticksArchivePath processLine entry = withArchive ticksArchivePath $ do
-    sourceEntry entry $ CText.decode CText.utf8 
+--ticksPipe :: (TickData -> IO ()) -> ConduitM ByteString (IO ()) IO ()
+ticksPipe processLine = CText.decode CText.utf8 
         .| CText.lines
         .| mapC unpack
         .| mapC dos2unix
         .| mapC tickFields
         .| mapC processLine
-        .| mapM_C liftIO
+
+processTicksFiles :: Path Abs File -> (TickData -> IO()) -> EntrySelector -> IO ()
+processTicksFiles ticksArchivePath processLine entry = withArchive ticksArchivePath $ do
+    sourceEntry entry $ ticksPipe processLine .| mapM_C liftIO
     
 -- not really useful since only natural ordering is required
 customSort :: Ord a => a -> a -> Ordering
