@@ -12,8 +12,7 @@ import Data.Text (Text, pack, unpack)
 import Text.Regex (Regex, matchRegex, mkRegex)
 import Data.Map (keys)
 import Control.Monad.IO.Class (liftIO)
-import Data.Conduit ((.|))
-import qualified Data.Conduit.List as CList
+import Conduit ((.|), mapM_C, mapMC, mapC)
 import qualified Data.Conduit.Text as CText
 import Data.Time (UTCTime)
 
@@ -25,8 +24,13 @@ dos2unix = dropWhileEnd (== '\r')
 
 processTicksFiles :: Path Abs File -> (TickData -> IO()) -> EntrySelector -> IO ()
 processTicksFiles ticksArchivePath processLine entry = withArchive ticksArchivePath $ do
-    sourceEntry entry $
-        CText.decode CText.utf8 .| CText.lines .| CList.mapM_ (liftIO . processLine . tickFields . dos2unix . unpack)
+    sourceEntry entry $ CText.decode CText.utf8 
+        .| CText.lines
+        .| mapC unpack
+        .| mapC dos2unix
+        .| mapC tickFields
+        .| mapC processLine
+        .| mapM_C liftIO
     
 -- not really useful since only natural ordering is required
 customSort :: Ord a => a -> a -> Ordering
