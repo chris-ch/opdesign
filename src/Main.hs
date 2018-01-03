@@ -5,9 +5,13 @@
 module Main where
 
 import Data.Data (Data, Typeable)
+import Control.Monad.IO.Class (liftIO)
 import System.Console.CmdArgs (def, help, opt, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
 import TicksReader (processTicks)
+import Conduit ((.|), Conduit, ConduitM, Sink, ResourceT, yieldMany, runConduit, mapM_C, mapMC, mapC, iterMC, stdoutC)
 import OrderBook (OrderBook, TickData, emptyOrderBook, updateOrderBook)
+import Data.Void (Void)
+
 
 data CommandLine = CommandLine {
     pattern :: String,
@@ -19,15 +23,17 @@ commandLine = cmdArgsMode CommandLine{
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
 
-tickProcessor :: TickData -> IO ()
-tickProcessor tickData = do
-     let orderBook = updateOrderBook emptyOrderBook tickData
-     print orderBook
-    
+--tickProcessor :: TickData -> IO ()
+tickProcessor tickData = updateOrderBook emptyOrderBook tickData
+
+--abc :: Conduit TickData (IO) (IO ())
+--abc :: ConduitM TickData (IO ()) IO ()
+abc :: ConduitM TickData Void (ResourceT IO) ()
+abc = mapC tickProcessor .| mapM_C (liftIO . print)
+
 main :: IO ()
 main = do
     parsedArguments <- cmdArgsRun commandLine
     print $ pattern parsedArguments
     print $ ticks parsedArguments
-    processTicks (ticks parsedArguments) (pattern parsedArguments) tickProcessor :: IO ()
-    
+    processTicks (ticks parsedArguments) (pattern parsedArguments) abc
