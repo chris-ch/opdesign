@@ -8,7 +8,7 @@ import Data.Data (Data, Typeable)
 import Control.Monad.IO.Class (liftIO)
 import System.Console.CmdArgs (def, help, opt, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
 import TicksReader (processTicks)
-import Conduit ((.|), Conduit, ConduitM, Sink, ResourceT, yieldMany, runConduit, mapM_C, mapMC, mapC, iterMC, stdoutC)
+import Conduit ((.|), Conduit, ConduitM, Sink, ResourceT,ZipSink, yieldMany, runConduit, mapM_C, mapMC, mapC, iterMC, dropC, getZipSink, getZipSource)
 import OrderBook (OrderBook, TickData, emptyOrderBook, updateOrderBook)
 import Data.Void (Void)
 
@@ -23,17 +23,17 @@ commandLine = cmdArgsMode CommandLine{
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
 
---tickProcessor :: TickData -> IO ()
-tickProcessor tickData = updateOrderBook emptyOrderBook tickData
+tickProcessor :: Conduit TickData (ResourceT IO) OrderBook
+tickProcessor = mapC (updateOrderBook emptyOrderBook)
 
---abc :: Conduit TickData (IO) (IO ())
---abc :: ConduitM TickData (IO ()) IO ()
-abc :: ConduitM TickData Void (ResourceT IO) ()
-abc = mapC tickProcessor .| mapM_C (liftIO . print)
+tickProcessorPrev = tickProcessor .| dropC 1
+
+--coupled :: Monad m => ConduitM Double Void m Double
+--coupled = getZipSource $ (,) <$> tickProcessor <*> tickProcessorPrev
 
 main :: IO ()
 main = do
     parsedArguments <- cmdArgsRun commandLine
     print $ pattern parsedArguments
     print $ ticks parsedArguments
-    processTicks (ticks parsedArguments) (pattern parsedArguments) abc
+    processTicks (ticks parsedArguments) (pattern parsedArguments) $ tickProcessor .| mapM_C (liftIO . print)

@@ -13,7 +13,7 @@ import Text.Regex (Regex, matchRegex, mkRegex)
 import Data.Map (keys)
 import Control.Monad.IO.Class (liftIO)
 import Conduit ((.|), Conduit, ConduitM, Sink, ResourceT, yieldMany, runConduit, mapM_C, mapMC, mapC, iterMC, decodeUtf8C)
--- import Data.ByteString (ByteString)
+import Data.ByteString (ByteString)
 import Data.Void (Void)
 import qualified Data.Conduit.Text as CText (lines)
 import Data.Time (UTCTime)
@@ -24,7 +24,7 @@ import OrderBook (TickData, OrderBook, tickFields)
 dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
--- processTicksFiles :: Path Abs File -> (TickData -> IO()) -> EntrySelector -> IO ()
+processTicksFiles :: Path Abs File -> Sink ByteString (ResourceT IO) () -> EntrySelector -> IO ()
 processTicksFiles ticksArchivePath ticks entry = withArchive ticksArchivePath $ sourceEntry entry ticks
 
 -- not really useful since only natural ordering is required
@@ -42,7 +42,6 @@ extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries
     where
         loadEntries = fmap keys getEntries :: ZipArchive [EntrySelector]
 
---processTicks :: FilePath -> String -> ConduitM TickData (IO ()) (ResourceT IO) () -> IO ()
 processTicks ::   FilePath -> String -> ConduitM TickData Void (ResourceT IO) () -> IO ()
 processTicks ticksFile csvFilePattern tickProcessor = do
     ticksArchivePath <- resolveFile' $ ticksFile :: IO (Path Abs File)
