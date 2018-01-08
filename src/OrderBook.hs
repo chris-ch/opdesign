@@ -6,6 +6,8 @@ module OrderBook where
 import Data.Time (UTCTime)
 import Numeric (readFloat, readSigned, fromRat, showFFloat)
 import Data.Text (pack, unpack, splitOn)
+import Data.Monoid (Monoid)
+import Data.Maybe (isJust)
 
 data TickType = Trade | BestBid | BestAsk deriving (Show, Eq)
 
@@ -71,3 +73,18 @@ updateOrderBook prevOrderBook newTick
         askPrice = Just $ price newTick
         }
     | otherwise  = prevOrderBook
+
+fromTickData :: TickData -> OrderBook
+fromTickData tickData = updateOrderBook emptyOrderBook tickData
+
+updateOrderBook' :: OrderBook -> OrderBook -> OrderBook
+updateOrderBook' orderBook orderBookUpdate = OrderBook {
+    bidVolume = if isJust (bidVolume orderBookUpdate) then bidVolume orderBookUpdate else Nothing,
+    bidPrice = if isJust (bidPrice orderBookUpdate) then bidPrice orderBookUpdate else Nothing,
+    askPrice = if isJust (askPrice orderBookUpdate) then askPrice orderBookUpdate else Nothing,
+    askVolume = if isJust (askVolume orderBookUpdate) then askVolume orderBookUpdate else Nothing
+    }
+
+instance Monoid OrderBook where
+  mempty = emptyOrderBook
+  mappend orderBook orderBookUpdate = updateOrderBook' orderBook orderBookUpdate
