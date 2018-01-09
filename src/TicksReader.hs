@@ -34,9 +34,10 @@ extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries
     where
         loadEntries = fmap keys getEntries :: ZipArchive [EntrySelector]
 
-readTicks :: FilePath -> String -> ConduitM ByteString Void (ResourceT IO) () -> IO ()
+--readTicks :: FilePath -> String -> ConduitM ByteString Void (ResourceT IO) () -> IO (ConduitM () Void IO ())
 readTicks ticksFile csvFilePattern ticks = do
     ticksArchivePath <- resolveFile' $ ticksFile :: IO (Path Abs File)
     entries <- extractEntries ticksArchivePath :: IO [EntrySelector]
     let csvEntries = sortBy customSort $ filter (isTickFile csvFilePattern) entries :: [EntrySelector]
-    runConduit $ yieldMany csvEntries .| mapM_C (readTicksFiles ticksArchivePath ticks) 
+    let stream = yieldMany csvEntries .| mapM_C (readTicksFiles ticksArchivePath ticks)
+    return stream

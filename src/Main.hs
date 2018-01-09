@@ -11,7 +11,7 @@ import TicksReader (readTicks)
 import Conduit ((.|))
 import Conduit (Conduit, ConduitM, Sink, ResourceT)
 import Conduit (yieldMany, runConduit, mapM_C, mapMC, mapC, iterMC, dropC, decodeUtf8C)
-import Conduit (ZipSource, getZipSink, getZipSource, sumC, lengthC, concatMapC)
+import Conduit (ZipSource, getZipSink, getZipSource, sumC, lengthC, concatMapC, foldMapC)
 import Data.Conduit
 import qualified Data.Conduit.Combinators as Cmb (print)
 import OrderBook (OrderBook, TickData, emptyOrderBook, updateOrderBook)
@@ -40,7 +40,7 @@ commandLine = cmdArgsMode CommandLine{
 
 -----------------------------------------------------------
 
-tickStream :: ConduitM ByteString TickData (ResourceT IO) ()
+--tickStream :: ConduitM ByteString TickData (ResourceT IO) ()
 tickStream = decodeUtf8C
                 .| CText.lines
                 .| mapC unpack
@@ -49,13 +49,13 @@ tickStream = decodeUtf8C
                 
                 -- .| Cmb.print -- mapM_C (liftIO . print)
                 
-orderBookStream :: ConduitM ByteString OrderBook (ResourceT IO) ()
-orderBookStream = tickStream .| mapC (updateOrderBook emptyOrderBook)
+--orderBookStream :: ConduitM ByteString OrderBook (ResourceT IO) ()
+orderBookStream = tickStream .| mapC (updateOrderBook emptyOrderBook) -- .| foldMapC id
 
-shiftedOrderBookStream :: ConduitM ByteString OrderBook (ResourceT IO) ()
-shiftedOrderBookStream = orderBookStream .| dropC 1
+--shiftedOrderBookStream :: ConduitM ByteString OrderBook (ResourceT IO) ()
+--shiftedOrderBookStream = orderBookStream .| dropC 1
 
-outputStream :: ConduitM ByteString Void (ResourceT IO) ()
+--outputStream :: ConduitM ByteString Void (ResourceT IO) ()
 outputStream = orderBookStream .| Cmb.print
 
 -----------------------------------------------------------
@@ -65,14 +65,9 @@ main = do
     parsedArguments <- cmdArgsRun commandLine
     print $ pattern parsedArguments
     print $ ticks parsedArguments
-    readTicks (ticks parsedArguments) (pattern parsedArguments) outputStream
+    stream <- readTicks (ticks parsedArguments) (pattern parsedArguments) outputStream
+    runConduit stream
 
------------------------------------------------------------
-
-mergeOrderBooks :: ConduitM ByteString OrderBook (ResourceT IO) ()
-mergeOrderBooks = getZipConduit
-    $ ZipConduit (orderBookStream)
-   *> ZipConduit (shiftedOrderBookStream)
 
 -----------------------------------------------------------
 
