@@ -11,7 +11,7 @@ import TicksReader (readTicks)
 import Conduit ((.|))
 import Conduit (Conduit, ConduitM, Sink, ResourceT)
 import Conduit (yieldMany, runConduit, mapM_C, mapMC, mapC, iterMC, dropC, decodeUtf8C)
-import Conduit (ZipSource, getZipSink, getZipSource, sumC, lengthC, concatMapC, foldMapC, takeC, sinkList)
+import Conduit (ZipSource, getZipSink, getZipSource, sumC, lengthC, concatMapC, foldMapC, takeC, sinkList, scanlC)
 import Data.Conduit
 import qualified Data.Conduit.Combinators as Cmb (print)
 import OrderBook (OrderBook, TickData, emptyOrderBook, updateOrderBook)
@@ -22,7 +22,7 @@ import qualified Data.Conduit.Text as CText (lines)
 import Data.Text (Text, pack, unpack)
 import Data.List (sortBy, dropWhileEnd)
 import Data.Word (Word8)
-import OrderBook (TickData, OrderBook, tickFields)
+import OrderBook (TickData, OrderBook, tickFields, fromTickData)
 
 -----------------------------------------------------------
 
@@ -36,29 +36,24 @@ dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
 commandLine = cmdArgsMode CommandLine{
-    pattern = def &= help "pattern for CSV files within archive",
+    pattern = def &= help "pattern for CSV files within archive, for example '/20.*csv'",
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
 
 -----------------------------------------------------------
 
---tickStream :: ConduitM ByteString TickData (ResourceT IO) ()
-tickStream = decodeUtf8C
+accumulate :: Monad m => ConduitM OrderBook OrderBook m ()
+accumulate = scanlC updateOrderBook emptyOrderBook
+
+orderBookStream :: ConduitM ByteString Void (ResourceT IO) ()
+orderBookStream = decodeUtf8C
                 .| CText.lines
                 .| mapC unpack
                 .| mapC dos2unix
                 .| mapC tickFields
-
-                -- .| Cmb.print -- mapM_C (liftIO . print)
-
---orderBookStream :: ConduitM ByteString OrderBook (ResourceT IO) ()
-orderBookStream = tickStream .| mapC (updateOrderBook emptyOrderBook) -- .| foldMapC id
-
---shiftedOrderBookStream :: ConduitM ByteString OrderBook (ResourceT IO) ()
---shiftedOrderBookStream = orderBookStream .| dropC 1
-
---outputStream :: ConduitM ByteString Void (ResourceT IO) ()
-outputStream = orderBookStream .| Cmb.print
+                .| mapC fromTickData
+                .| accumulate
+                .| Cmb.print
 
 -----------------------------------------------------------
 
@@ -67,8 +62,7 @@ main = do
     parsedArguments <- cmdArgsRun commandLine
     print $ pattern parsedArguments
     print $ ticks parsedArguments
-    stream <- readTicks (ticks parsedArguments) (pattern parsedArguments) outputStream
-    let testInput = [""]
+    stream <- readTicks (ticks parsedArguments) (pattern parsedArguments) orderBookStream
     runConduit stream
 
 
@@ -93,5 +87,6 @@ testTickFields :: IO ()
 testTickFields = do
     runConduit $ yieldMany testInputData
                     .| mapC tickFields
-                    .| mapC (updateOrderBook emptyOrderBook)
+                    .| mapC fromTickData
+                    .| accumulate
                     .| mapM_C print

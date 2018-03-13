@@ -62,29 +62,32 @@ emptyOrderBook = OrderBook {
     askVolume = Nothing
     }
 
-updateOrderBook :: OrderBook -> TickData -> OrderBook
-updateOrderBook prevOrderBook newTick
-    | tickType newTick == BestBid = prevOrderBook {
-        bidVolume = Just $ volume newTick,
-        bidPrice = Just $ price newTick
-        }
-    | tickType newTick == BestAsk = prevOrderBook {
-        askVolume = Just $ volume newTick,
-        askPrice = Just $ price newTick
-        }
-    | otherwise  = prevOrderBook
-
 fromTickData :: TickData -> OrderBook
-fromTickData tickData = updateOrderBook emptyOrderBook tickData
+fromTickData tickData
+    | tickType tickData == BestBid = OrderBook {
+        bidVolume = Just $ volume tickData,
+        bidPrice = Just $ price tickData,
+        askVolume = Nothing,
+        askPrice = Nothing
 
-updateOrderBook' :: OrderBook -> OrderBook -> OrderBook
-updateOrderBook' orderBook orderBookUpdate = OrderBook {
-    bidVolume = if isJust (bidVolume orderBookUpdate) then bidVolume orderBookUpdate else Nothing,
-    bidPrice = if isJust (bidPrice orderBookUpdate) then bidPrice orderBookUpdate else Nothing,
-    askPrice = if isJust (askPrice orderBookUpdate) then askPrice orderBookUpdate else Nothing,
-    askVolume = if isJust (askVolume orderBookUpdate) then askVolume orderBookUpdate else Nothing
+        }
+    | tickType tickData == BestAsk = OrderBook {
+        bidVolume = Nothing,
+        bidPrice = Nothing,
+        askVolume = Just $ volume tickData,
+        askPrice = Just $ price tickData
+        }
+    | otherwise  = emptyOrderBook
+
+
+updateOrderBook :: OrderBook -> OrderBook -> OrderBook
+updateOrderBook orderBook orderBookUpdate = OrderBook {
+    bidVolume = if isJust (bidVolume orderBookUpdate) then bidVolume orderBookUpdate else bidVolume orderBook,
+    bidPrice = if isJust (bidPrice orderBookUpdate) then bidPrice orderBookUpdate else bidPrice orderBook,
+    askPrice = if isJust (askPrice orderBookUpdate) then askPrice orderBookUpdate else askPrice orderBook,
+    askVolume = if isJust (askVolume orderBookUpdate) then askVolume orderBookUpdate else askVolume orderBook
     }
 
 instance Monoid OrderBook where
   mempty = emptyOrderBook
-  mappend orderBook orderBookUpdate = updateOrderBook' orderBook orderBookUpdate
+  mappend orderBook orderBookUpdate = updateOrderBook orderBook orderBookUpdate
