@@ -5,35 +5,24 @@
 module Main where
 
 import Data.Data (Data, Typeable)
-import Control.Monad.IO.Class (liftIO)
 import System.Console.CmdArgs (def, help, opt, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
-import TicksReader (readTicks)
-import Conduit ((.|))
-import Conduit (Conduit, ConduitM, Sink, ResourceT)
-import Conduit (yieldMany, runConduit, mapM_C, mapMC, mapC, iterMC, dropC, decodeUtf8C)
-import Conduit (ZipSource, getZipSink, getZipSource, sumC, lengthC, concatMapC, foldMapC, takeC, sinkList, scanlC)
-import Data.Conduit
+import Conduit ((.|), ConduitM, ResourceT)
+import Conduit (yieldMany, runConduit, mapM_C, mapC, dropC, decodeUtf8C, scanlC)
 import qualified Data.Conduit.Combinators as Cmb (print)
-import OrderBook (OrderBook, TickData, emptyOrderBook, updateOrderBook)
 import Data.Void (Void)
 import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as Char8
 import qualified Data.Conduit.Text as CText (lines)
 import Data.Text (Text, pack, unpack)
 import Data.List (sortBy, dropWhileEnd)
-import Data.Word (Word8)
-import OrderBook (TickData, OrderBook, tickFields, fromTickData)
 
+import OrderBook (OrderBook, TickData, emptyOrderBook, updateOrderBook, tickFields, fromTickData)
+import TicksReader (readTicks)
 -----------------------------------------------------------
 
 data CommandLine = CommandLine {
     pattern :: String,
     ticks :: FilePath
     } deriving (Show, Data, Typeable)
-
--- drops possible '\r' endings
-dos2unix :: String -> String
-dos2unix = dropWhileEnd (== '\r')
 
 commandLine = cmdArgsMode CommandLine{
     pattern = def &= help "pattern for CSV files within archive, for example '/20.*csv'",
@@ -42,8 +31,9 @@ commandLine = cmdArgsMode CommandLine{
 
 -----------------------------------------------------------
 
-accumulate :: Monad m => ConduitM OrderBook OrderBook m ()
-accumulate = scanlC updateOrderBook emptyOrderBook
+-- drops possible '\r' endings
+dos2unix :: String -> String
+dos2unix = dropWhileEnd (== '\r')
 
 orderBookStream :: ConduitM ByteString Void (ResourceT IO) ()
 orderBookStream = decodeUtf8C
@@ -52,7 +42,7 @@ orderBookStream = decodeUtf8C
                 .| mapC dos2unix
                 .| mapC tickFields
                 .| mapC fromTickData
-                .| accumulate
+                .| scanlC updateOrderBook emptyOrderBook
                 .| Cmb.print
 
 -----------------------------------------------------------
@@ -82,11 +72,10 @@ testInputData = lines "\
 \2014-10-28 06:53:05.000000,BEST_BID,8938.5,8.0,S\n\
 \"
 
-
 testTickFields :: IO ()
 testTickFields = do
     runConduit $ yieldMany testInputData
                     .| mapC tickFields
                     .| mapC fromTickData
-                    .| accumulate
+                    .| scanlC updateOrderBook emptyOrderBook
                     .| mapM_C print
