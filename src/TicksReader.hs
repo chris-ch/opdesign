@@ -16,7 +16,7 @@ import Data.ByteString (ByteString)
 import Data.Void (Void)
 import Data.Time (UTCTime)
 
-readTicksFiles :: Path Abs File -> ConduitM ByteString Void (ResourceT IO) () -> EntrySelector -> IO ()
+readTicksFiles :: FilePath -> ConduitM ByteString Void (ResourceT IO) () -> EntrySelector -> IO ()
 readTicksFiles ticksArchivePath ticks entry = withArchive ticksArchivePath $ sourceEntry entry ticks
 
 -- not really useful since only natural ordering is required
@@ -29,15 +29,16 @@ isTickFile tickFilePattern entry = isJust $ matchRegex (mkRegex tickFilePattern)
     where
         entryName = getEntryName entry :: Text
 
-extractEntries :: Path Abs File -> IO [EntrySelector]
+extractEntries :: FilePath -> IO [EntrySelector]
 extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries
     where
         loadEntries = fmap keys getEntries :: ZipArchive [EntrySelector]
 
 readTicks :: FilePath -> String -> ConduitM ByteString Void (ResourceT IO) () -> IO (ConduitM () Void IO ())
 readTicks ticksFile csvFilePattern ticks = do
-    ticksArchivePath <- resolveFile' $ ticksFile :: IO (Path Abs File)
-    entries <- extractEntries ticksArchivePath :: IO [EntrySelector]
+    entries <- extractEntries ticksFile :: IO [EntrySelector]
+    print $ "all entries: " ++ show entries
     let csvEntries = sortBy customSort $ filter (isTickFile csvFilePattern) entries :: [EntrySelector]
-    let stream = yieldMany csvEntries .| mapM_C (readTicksFiles ticksArchivePath ticks)
+    print $ "csv entries: " ++ show csvEntries
+    let stream = yieldMany csvEntries .| mapM_C (readTicksFiles ticksFile ticks)
     return stream

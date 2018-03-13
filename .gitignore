@@ -5,3 +5,7 @@ dist
 .idea
 stack.yaml
 *.hsplay
+/data/GX1%20Index.zip
+*.iml
+.stack-work
+out

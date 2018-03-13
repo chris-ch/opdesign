@@ -3,7 +3,7 @@
 
 module OrderBook where
 
-import Data.Time (UTCTime)
+import Data.Time.Clock (UTCTime)
 import Numeric (readFloat, readSigned, fromRat, showFFloat)
 import Data.Text (pack, unpack, splitOn)
 import Data.Monoid (Monoid)
