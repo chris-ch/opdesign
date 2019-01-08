@@ -1,0 +1,8 @@
+.vscode
+.cabal-sandbox/
+.stack-work/
+opdesign.cabal
+*~
+dist
+cabal.sandbox.config
+

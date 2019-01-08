@@ -1,0 +1,61 @@
+name:                opdesign
+version:             0.1.0.0
+github:              "chris-ch/opdesign"
+license:             BSD3
+author:              "Christophe"
+maintainer:          "ch.alexandre@bluewin.ch"
+copyright:           "Optimacom sarl"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            markets
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/chris-ch/opdesign#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- regex-compat == 0.95.1
+- containers == 0.5.11.0
+- path == 0.6.1
+- zip == 1.1.0
+- base == 4.11.1.0
+- bytestring == 0.10.8.2
+- text == 1.2.3.0
+- time == 1.8.0.2
+- cmdargs == 0.10.20
+- conduit == 1.3.0.3
+- conduit-combinators == 1.3.0
+- conduit-extra == 1.3.0
+
+library:
+  source-dirs: src
+
+executables:
+  opdesign-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - opdesign
+
+tests:
+  opdesign-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - opdesign
+    - hspec >= 2.2
