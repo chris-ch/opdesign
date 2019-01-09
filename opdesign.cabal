@@ -18,10 +18,9 @@ data-files:
 
 library
   hs-source-dirs:      src
-  exposed-modules:     OrderBook
-                     , TicksReader
+  exposed-modules:  OpDesign.OrderBook
+                     , OpDesign.TicksReader
   build-depends:       base >= 4.7 && < 5
-                     , path-io
                      , cmdargs
                      , regex-compat
                      , bytestring
@@ -41,7 +40,6 @@ executable opdesign
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , opdesign
-                     , path-io
                      , cmdargs
                      , regex-compat
                      , bytestring

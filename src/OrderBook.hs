@@ -88,6 +88,6 @@ updateOrderBook orderBook orderBookUpdate = OrderBook {
     askVolume = if isJust (askVolume orderBookUpdate) then askVolume orderBookUpdate else askVolume orderBook
     }
 
-instance Monoid OrderBook where
-  mempty = emptyOrderBook
-  mappend orderBook orderBookUpdate = updateOrderBook orderBook orderBookUpdate
+--instance Monoid OrderBook where
+--  mempty = emptyOrderBook
+--  mappend orderBook orderBookUpdate = updateOrderBook orderBook orderBookUpdate

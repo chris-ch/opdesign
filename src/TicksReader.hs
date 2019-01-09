@@ -6,7 +6,6 @@ module TicksReader where
 import Codec.Archive.Zip (EntrySelector, ZipArchive, withArchive, sourceEntry, getEntries, getEntryName)
 import Path (Path, Abs, File)
 import Data.Maybe (isJust)
-import Path.IO (resolveFile')
 import Data.List (sortBy)
 import Data.Text (Text, pack, unpack)
 import Text.Regex (Regex, matchRegex, mkRegex)
