@@ -11,3 +11,5 @@ stack.yaml
 .stack-work
 out
 stack.yaml
+opdesign.cabal
+

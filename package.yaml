@@ -25,7 +25,6 @@ dependencies:
 - containers >= 0.5.11.0
 - path >= 0.6.1
 - zip >= 1.1.0
-- base <= 4.11.1.0
 - bytestring >= 0.10.8.2
 - text >= 1.2.3.0
 - time >= 1.8.0.2
@@ -59,3 +58,5 @@ tests:
     dependencies:
     - opdesign
     - hspec >= 2.2
+    - QuickCheck
+
