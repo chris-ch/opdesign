@@ -10,3 +10,4 @@ stack.yaml
 *.iml
 .stack-work
 out
+stack.yaml
