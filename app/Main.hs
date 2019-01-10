@@ -20,12 +20,12 @@ import OpDesign.OrderBook (OrderBook)
 
 -----------------------------------------------------------
 
-data CommandLine = CommandLine {
+data OpDesign = OpDesign {
     pattern :: String,
     ticks :: FilePath
     } deriving (Show, Data, Typeable)
 
-opdesign = cmdArgsMode CommandLine{
+opdesign = cmdArgsMode OpDesign{
     pattern = def &= opt ".*/[^.]+.csv" &= help "pattern for CSV files within archive",
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
