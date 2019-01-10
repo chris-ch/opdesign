@@ -18,9 +18,7 @@ readTicksFiles ticksArchivePath sinkTicks entry = withArchive ticksArchivePath $
 
 -- checks whether we are processing a valid csv file containing ticks data
 isTickFile :: String -> EntrySelector -> Bool
-isTickFile tickFilePattern entry = isJust $ matchRegex (mkRegex tickFilePattern) (unpack entryName)
-    where
-        entryName = getEntryName entry
+isTickFile tickFilePattern entry = isJust (matchRegex (mkRegex tickFilePattern) (unpack (getEntryName entry)))
 
 extractEntries :: FilePath -> IO [EntrySelector]
 extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries
@@ -28,7 +26,7 @@ extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries
         loadEntries = fmap keys getEntries :: ZipArchive [EntrySelector]
 
 selectEntries :: (EntrySelector -> Bool) -> [EntrySelector] -> [EntrySelector]
-selectEntries filterOp inputEntries = sort $ filter filterOp inputEntries
+selectEntries filterOp = sort . filter filterOp
 
 readTicks :: FilePath -> String -> ConduitM ByteString Void (ResourceT IO) () -> IO (ConduitM () Void IO ())
 readTicks ticksFile csvFilePattern sinkTicks = do
