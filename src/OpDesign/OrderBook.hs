@@ -91,4 +91,3 @@ updateOrderBook orderBook orderBookUpdate = OrderBook {
     askPrice = updateOrderBookField (askPrice orderBook) (askPrice orderBookUpdate),
     askVolume = updateOrderBookField (askVolume orderBook) (askVolume orderBookUpdate)
     }
-
