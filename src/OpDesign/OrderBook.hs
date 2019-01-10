@@ -7,7 +7,6 @@ import Data.Time (UTCTime)
 import Numeric (readFloat, readSigned, fromRat, showFFloat)
 import Data.Text (pack, unpack, splitOn)
 import Data.Monoid (Monoid)
-import Data.Maybe (isJust)
 
 data TickType = Trade | BestBid | BestAsk deriving (Show, Eq)
 

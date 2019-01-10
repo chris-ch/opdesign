@@ -4,7 +4,6 @@
 module OpDesign.TicksReader where
 
 import Codec.Archive.Zip (EntrySelector, ZipArchive, withArchive, sourceEntry, getEntries, getEntryName)
-import Path (Path, Abs, File)
 import Data.Maybe (isJust)
 import Data.List (sortBy)
 import Data.Text (pack, unpack)
@@ -13,7 +12,6 @@ import Data.Map (keys)
 import Conduit ((.|), Conduit, ConduitM, ResourceT, yieldMany, runConduit, mapM_C)
 import Data.ByteString (ByteString)
 import Data.Void (Void)
-import Data.Time (UTCTime)
 
 readTicksFiles :: FilePath -> ConduitM ByteString Void (ResourceT IO) () -> EntrySelector -> IO ()
 readTicksFiles ticksArchivePath sinkTicks entry = withArchive ticksArchivePath $ sourceEntry entry sinkTicks
