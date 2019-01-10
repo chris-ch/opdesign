@@ -80,11 +80,16 @@ fromTickData tickData
     | otherwise  = emptyOrderBook
 
 
+updateOrderBookField :: Maybe a -> Maybe a -> Maybe a
+updateOrderBookField _ (Just newFieldValue) = Just newFieldValue
+updateOrderBookField (Just oldFieldValue) Nothing = Just oldFieldValue
+updateOrderBookField Nothing Nothing = Nothing
+
 updateOrderBook :: OrderBook -> OrderBook -> OrderBook
 updateOrderBook orderBook orderBookUpdate = OrderBook {
-    bidVolume = if isJust (bidVolume orderBookUpdate) then bidVolume orderBookUpdate else bidVolume orderBook,
-    bidPrice = if isJust (bidPrice orderBookUpdate) then bidPrice orderBookUpdate else bidPrice orderBook,
-    askPrice = if isJust (askPrice orderBookUpdate) then askPrice orderBookUpdate else askPrice orderBook,
-    askVolume = if isJust (askVolume orderBookUpdate) then askVolume orderBookUpdate else askVolume orderBook
+    bidVolume = updateOrderBookField (bidVolume orderBook) (bidVolume orderBookUpdate),
+    bidPrice = updateOrderBookField (bidPrice orderBook) (bidPrice orderBookUpdate),
+    askPrice = updateOrderBookField (askPrice orderBook) (askPrice orderBookUpdate),
+    askVolume = updateOrderBookField (askVolume orderBook) (askVolume orderBookUpdate)
     }
 
