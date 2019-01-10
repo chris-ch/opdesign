@@ -33,7 +33,7 @@ dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
 opdesign = cmdArgsMode CommandLine{
-    pattern = def &= help "pattern for CSV files within archive",
+    pattern = def &= help "pattern for CSV files within archive", -- &= opt ".*/[^.]+.csv",
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
 

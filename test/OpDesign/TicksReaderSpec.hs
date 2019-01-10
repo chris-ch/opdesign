@@ -6,12 +6,12 @@ import Codec.Archive.Zip (getEntryName)
 
 import Data.Text (pack, unpack)
 
-import OpDesign.TicksReader (extractEntries)
+import OpDesign.TicksReader (extractEntries, selectEntries, isTickFile)
 
 spec :: Spec
 spec = describe "Reading ticks from archive" $ do
     context "price archive reader" $ do
-        it "should read file content" $ do
+        it "should list archive content" $ do
             entries <- extractEntries "test/data/data-small.zip"
             let archiveContent =    [ "__MACOSX/._data-small"
                                     , "__MACOSX/data-small/._.DS_Store"
@@ -23,5 +23,14 @@ spec = describe "Reading ticks from archive" $ do
                                     , "data-small/20141027.csv"
                                     , "data-small/20141028.csv" ]
   
-            map (unpack . getEntryName) entries `shouldBe`  archiveContent
+            map (unpack . getEntryName) entries `shouldBe` archiveContent
+  
+        it "should select csv files" $ do
+            entries <- extractEntries "test/data/data-small.zip"
+            let csvEntries = selectEntries (isTickFile ".*/[^.]+.csv") entries
+            let archiveContent =    [ "data-small/20141026.csv"
+                                    , "data-small/20141027.csv"
+                                    , "data-small/20141028.csv" ]
+  
+            map (unpack . getEntryName) csvEntries `shouldBe` archiveContent
   

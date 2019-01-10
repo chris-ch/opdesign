@@ -5,7 +5,7 @@ module OpDesign.TicksReader where
 
 import Codec.Archive.Zip (EntrySelector, ZipArchive, withArchive, sourceEntry, getEntries, getEntryName)
 import Data.Maybe (isJust)
-import Data.List (sortBy)
+import Data.List (sort)
 import Data.Text (pack, unpack)
 import Text.Regex (Regex, matchRegex, mkRegex)
 import Data.Map (keys)
@@ -15,10 +15,6 @@ import Data.Void (Void)
 
 readTicksFiles :: FilePath -> ConduitM ByteString Void (ResourceT IO) () -> EntrySelector -> IO ()
 readTicksFiles ticksArchivePath sinkTicks entry = withArchive ticksArchivePath $ sourceEntry entry sinkTicks
-
--- not really useful since only natural ordering is required
-customSort :: Ord a => a -> a -> Ordering
-customSort elem1 elem2 = compare elem1 elem2
 
 -- checks whether we are processing a valid csv file containing ticks data
 isTickFile :: String -> EntrySelector -> Bool
@@ -31,10 +27,13 @@ extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries
     where
         loadEntries = fmap keys getEntries :: ZipArchive [EntrySelector]
 
+selectEntries :: (EntrySelector -> Bool) -> [EntrySelector] -> [EntrySelector]
+selectEntries filterOp inputEntries = sort $ filter filterOp inputEntries
+
 readTicks :: FilePath -> String -> ConduitM ByteString Void (ResourceT IO) () -> IO (ConduitM () Void IO ())
 readTicks ticksFile csvFilePattern sinkTicks = do
     entries <- extractEntries ticksFile :: IO [EntrySelector]
-    let csvEntries = sortBy customSort $ filter (isTickFile csvFilePattern) entries :: [EntrySelector]
+    let csvEntries = selectEntries (isTickFile csvFilePattern) entries
     let stream = yieldMany csvEntries .| mapM_C (readTicksFiles ticksFile sinkTicks)
     return stream
 
