@@ -39,18 +39,18 @@ spec = describe "Testing pipes" $ do
             1 + 2 
         `shouldBe` 3
 
-    context "yielding [1..10]" $
+    context "yielding array of 10 first integers" $
         it "should yield many" $ 
             runConduitPure (yieldMany [1..10] .| sinkList)
         `shouldBe` [1..10]
 
-    context "yielding [2..11]" $
+    context "yielding array of 10 first integers increased by 1" $
         it "should be increased by 1" $
             runConduitPure ( yieldMany [1..10] .| mapC (+ 1) .| sinkList )
         `shouldBe` [2..11]
 
-    context "with test set" $
-          it "should be XYZ" $
+    context "with short test set" $
+          it "should generate seris of best order books" $
             runConduitPure ( yieldMany testInputData .| mapC tickFields .| mapC fromTickData .| accumulate .| sinkList)
         `shouldBe` [
             OrderBook {bidVolume = Nothing, bidPrice = Nothing, askPrice = Nothing, askVolume = Nothing},
