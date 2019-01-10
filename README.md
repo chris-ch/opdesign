@@ -13,3 +13,7 @@ Running the program:
 
 Notice the first argument has to be -- in order to escape stack's options.
 
+Example running exe:
+> opdesign-exe --pattern="data-small/[^.]" data/data-small.zip
+
+
