@@ -6,15 +6,10 @@ import Conduit (ConduitM)
 import Conduit (yieldMany, runConduit, runConduitPure, mapM_C, mapMC, mapC, iterMC, dropC, decodeUtf8C, sinkList, scanlC)
 import Conduit ((.|))
 
-import Codec.Archive.Zip (getEntryName)
-
 import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM) 
 import qualified Data.Conduit.Combinators as Cmb (print)
 
-import Data.Text (pack, unpack)
-
 import OpDesign.OrderBook (OrderBook, TickData, emptyOrderBook, tickFields, updateOrderBook, fromTickData)
-import OpDesign.TicksReader (extractEntries)
 
 testInputData :: [String]
 testInputData = lines "\
@@ -30,10 +25,6 @@ testInputData = lines "\
 \2014-10-28 06:53:04.000000,BEST_BID,8940.0,6.0,S\n\
 \2014-10-28 06:53:05.000000,BEST_BID,8938.5,8.0,S\n\
 \"
-
-main :: IO ()
---main = hspec spec
-main = print "TEST"
 
 accumulate :: Monad m => ConduitM OrderBook OrderBook m ()
 accumulate = scanlC updateOrderBook emptyOrderBook
@@ -73,8 +64,3 @@ spec = describe "Testing pipes" $ do
             OrderBook {bidVolume = Just $ Volume 8, bidPrice = Just $ Price 8938.5, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5}
         ]
  
-    context "from file" $ do
-        it "should read file content" $ do
-            entries <- extractEntries "data/data-small.zip"
-            unpack ( getEntryName (head entries) ) `shouldBe` "x"
-               
