@@ -15,6 +15,7 @@ import Conduit (ZipSource, getZipSink, getZipSource, sumC, lengthC, concatMapC, 
 import Data.Conduit
 import qualified Data.Conduit.Combinators as Cmb (print)
 import OpDesign.OrderBook (OrderBook, TickData, emptyOrderBook, tickFields, updateOrderBook, fromTickData)
+import OpDesign.TicksReader (extractEntries)
 import Data.Void (Void)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as Char8
@@ -34,7 +35,7 @@ data CommandLine = CommandLine {
 dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
-commandLine = cmdArgsMode CommandLine{
+opdesign = cmdArgsMode CommandLine{
     pattern = def &= help "pattern for CSV files within archive",
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
@@ -58,8 +59,8 @@ outputStream = orderBookStream .| Cmb.print
      
 main :: IO ()
 main = do
-    parsedArguments <- cmdArgsRun commandLine
-    print $ pattern parsedArguments
-    print $ ticks parsedArguments
+    parsedArguments <- cmdArgsRun opdesign
+    print $ "pattern for CSV files in archive: '" ++ (pattern parsedArguments) ++ "'"
+    print $ "ticks archive file: '" ++ (ticks parsedArguments) ++ "'"
     stream <- readTicks (ticks parsedArguments) (pattern parsedArguments) outputStream
     runConduit stream
