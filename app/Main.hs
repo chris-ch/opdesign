@@ -15,7 +15,7 @@ import System.Console.CmdArgs (def, help, opt, typ, argPos, args, cmdArgsMode, c
 import qualified Data.Conduit.Combinators as Cmb (print)
 
 import OpDesign.TicksReader (readTicks)
-import OpDesign.OrderBookStream (orderBookStream)
+import OpDesign.OrderBookStream (tickStream, orderBookStream)
 import OpDesign.OrderBook (OrderBook)
 
 -----------------------------------------------------------
@@ -32,7 +32,7 @@ opdesign = cmdArgsMode OpDesign{
 
 -----------------------------------------------------------
 outputStream :: ConduitM ByteString Void (ResourceT IO) ()
-outputStream = orderBookStream .| Cmb.print
+outputStream = tickStream .| orderBookStream .| Cmb.print
           
 -----------------------------------------------------------
      

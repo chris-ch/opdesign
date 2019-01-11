@@ -11,7 +11,7 @@ import Data.ByteString (ByteString)
 
 import Conduit ((.|))
 import Conduit (ConduitM, ResourceT)
-import Conduit (mapC, decodeUtf8C)
+import Conduit (mapC, decodeUtf8C, scanlC)
 
 import OpDesign.OrderBook (OrderBook, emptyOrderBook, updateOrderBook, fromTickData, tickFields)
 
@@ -19,13 +19,14 @@ import OpDesign.OrderBook (OrderBook, emptyOrderBook, updateOrderBook, fromTickD
 dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
-tickStream :: ConduitM ByteString OrderBook (ResourceT IO) ()
+tickStream :: ConduitM ByteString String (ResourceT IO) ()
 tickStream = decodeUtf8C
                 .| CText.lines
                 .| mapC unpack
                 .| mapC dos2unix
-                .| mapC tickFields
-                .| mapC fromTickData
 
-orderBookStream :: ConduitM ByteString OrderBook (ResourceT IO) ()
-orderBookStream = tickStream .| mapC (updateOrderBook emptyOrderBook)
+accumulate :: Monad m => ConduitM OrderBook OrderBook m ()
+accumulate = scanlC updateOrderBook emptyOrderBook
+
+orderBookStream :: Monad m => ConduitM String OrderBook m ()
+orderBookStream = mapC tickFields .| mapC fromTickData .| accumulate

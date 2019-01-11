@@ -3,13 +3,13 @@ module OpDesign.OrderBookSpec where
 import SpecHelper
 
 import Conduit (ConduitM)
-import Conduit (yieldMany, runConduit, runConduitPure, mapM_C, mapMC, mapC, iterMC, dropC, decodeUtf8C, sinkList, scanlC)
+import Conduit (yieldMany, runConduitPure, mapC, decodeUtf8C, sinkList)
 import Conduit ((.|))
 
 import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM) 
 import qualified Data.Conduit.Combinators as Cmb (print)
 
-import OpDesign.OrderBook (OrderBook, TickData, emptyOrderBook, tickFields, updateOrderBook, fromTickData)
+import OpDesign.OrderBookStream (orderBookStream)
 
 testInputData :: [String]
 testInputData = lines "\
@@ -26,8 +26,11 @@ testInputData = lines "\
 \2014-10-28 06:53:05.000000,BEST_BID,8938.5,8.0,S\n\
 \"
 
-accumulate :: Monad m => ConduitM OrderBook OrderBook m ()
-accumulate = scanlC updateOrderBook emptyOrderBook
+processOrderBook :: OrderBook -> OrderBook
+processOrderBook orderBook = orderBook
+
+strategy :: Monad m => ConduitM OrderBook OrderBook m ()
+strategy = mapC processOrderBook
 
 spec :: Spec
 spec = describe "Testing pipes" $ do
@@ -48,7 +51,7 @@ spec = describe "Testing pipes" $ do
 
     context "with short test set" $
           it "should generate seris of best order books" $
-            runConduitPure ( yieldMany testInputData .| mapC tickFields .| mapC fromTickData .| accumulate .| sinkList)
+            runConduitPure ( yieldMany testInputData .| orderBookStream .| strategy .| sinkList)
         `shouldBe` [
             OrderBook {bidVolume = Nothing, bidPrice = Nothing, askPrice = Nothing, askVolume = Nothing},
             OrderBook {bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
