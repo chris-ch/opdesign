@@ -2,10 +2,12 @@ module OpDesign.OrderBookSpec where
 
 import SpecHelper
 
-import Conduit (ConduitT)
-import Conduit (yieldMany, runConduitPure, mapC, scanlC, foldlC, dropC, decodeUtf8C, sinkList)
+import Conduit (ConduitT, ResourceT)
+import Conduit (yieldMany, runConduitPure, mapC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, decodeUtf8C, sinkList)
 import Conduit ((.|))
 
+import Data.List (sum)
+import Text.Show (show)
 import Data.Time (UTCTime)
 import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM) 
 import qualified Data.Conduit.Combinators as Cmb (print)
@@ -35,10 +37,25 @@ spec = describe "Testing reading ticks using pipes" $ do
             1 + 2 
         `shouldBe` 3
 
+    context "transforming to sring" $
+        it "should produce strings" $
+            runConduitPure ( yieldMany [1..10] .| mapC show .| sinkList )
+        `shouldBe` ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+
     context "yielding array of 10 first integers" $
         it "should yield many" $ 
             runConduitPure (yieldMany [1..10] .| sinkList)
         `shouldBe` [1..10]
+
+    context "grouped values" $
+        it "should yield many" $ 
+            runConduitPure (yieldMany [[1, 2, 3], [4, 5], [6]] .| sinkList)
+        `shouldBe` [[1, 2, 3], [4, 5], [6]]
+
+    context "summing grouped values" $
+        it "should yield sum of individual groups" $ 
+            runConduitPure (yieldMany [[1, 2, 3], [4, 5], [6]] .|  mapC sum .| sinkList)
+        `shouldBe` [6, 9, 6]
 
     context "yielding array of 10 first integers increased by 1" $
         it "should be increased by 1" $
@@ -46,19 +63,32 @@ spec = describe "Testing reading ticks using pipes" $ do
         `shouldBe` [2..11]
 
     context "summing using foldlC" $
-        it "should be increased by 1" $
+        it "should compute sum of integers up to 10" $
             runConduitPure ( yieldMany [1..10] .| foldlC (+) 0 )
         `shouldBe` 55
 
     context "yielding fibonnacci series" $
-        it "should be increased by 1" $
+        it "should produce fibbonaci series" $
             runConduitPure ( yieldMany [1..10] .| scanlC (+) 0 .| (dropC 1 >> sinkList) )
-        `shouldBe` [1, 3, 6,10, 15, 21, 28, 36, 45, 55]
+        `shouldBe` [1, 3, 6, 10, 15, 21, 28, 36, 45, 55]
 
     context "yielding fibonnacci series using scanlC" $
-            it "should be increased by 1" $
-                runConduitPure ( yieldMany [1..10] .| scanl1C (+) .| sinkList )
-            `shouldBe` [1, 3, 6,10, 15, 21, 28, 36, 45, 55]
+        it "should produce fibbonaci series" $
+            runConduitPure ( yieldMany [1..10] .| scanl1C (+) .| sinkList )
+        `shouldBe` [1, 3, 6, 10, 15, 21, 28, 36, 45, 55]
+
+    context "sliding window" $
+        it "should create sliding windows" $
+            runConduitPure ( yieldMany [1..10] .| slidingWindowC 4 .| sinkList )
+        `shouldBe` [[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6], [4, 5, 6, 7], [5, 6, 7, 8], [6, 7, 8, 9], [7, 8, 9, 10]]
+
+    context "sliding window" $
+        it "should create sliding windows and compute sums of each group" $
+            runConduitPure ( yieldMany [1..10 :: Int] 
+                .| (slidingWindowC 4 :: (Monad m) => ConduitT Int [Int] m ())
+                .| mapC sum
+                .| sinkList )
+        `shouldBe` [10, 14, 18, 22, 26, 30, 34]
 
     context "using test data" $
           it "should produce a stream of orderbooks" $
