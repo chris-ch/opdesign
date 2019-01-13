@@ -11,10 +11,13 @@ import Data.ByteString (ByteString)
 import Data.Time (UTCTime)
 
 import Conduit ((.|))
-import Conduit (ConduitT, ResourceT)
+import Conduit (ConduitT, ResourceT, await)
 import Conduit (mapC, decodeUtf8C, scanlC)
 
 import OpDesign.OrderBook (OrderBook, emptyOrderBook, updateOrderBook, fromTickData, tickFields)
+
+scanl1C :: Monad m => (a -> a -> a) -> ConduitT a a m ()
+scanl1C f = await >>= maybe (return ()) (scanlC f)
 
 -- drops possible '\r' endings
 dos2unix :: String -> String
@@ -30,4 +33,4 @@ accumulate :: Monad m => ConduitT OrderBook OrderBook m ()
 accumulate = scanlC updateOrderBook ( emptyOrderBook (read "2000-01-01 00:00:00" :: UTCTime))
 
 orderBookStream :: Monad m => ConduitT String OrderBook m ()
-orderBookStream = mapC tickFields .| mapC fromTickData .| accumulate
+orderBookStream = mapC tickFields .| mapC fromTickData .| scanl1C updateOrderBook

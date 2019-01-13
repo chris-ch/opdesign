@@ -3,14 +3,14 @@ module OpDesign.OrderBookSpec where
 import SpecHelper
 
 import Conduit (ConduitT)
-import Conduit (yieldMany, runConduitPure, mapC, scanlC, decodeUtf8C, sinkList)
+import Conduit (yieldMany, runConduitPure, mapC, scanlC, foldlC, dropC, decodeUtf8C, sinkList)
 import Conduit ((.|))
 
 import Data.Time (UTCTime)
 import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM) 
 import qualified Data.Conduit.Combinators as Cmb (print)
 
-import OpDesign.OrderBookStream (orderBookStream)
+import OpDesign.OrderBookStream (orderBookStream, scanl1C)
 
 testInputData :: [String]
 testInputData = lines "\
@@ -45,10 +45,20 @@ spec = describe "Testing reading ticks using pipes" $ do
             runConduitPure ( yieldMany [1..10] .| mapC (+ 1) .| sinkList )
         `shouldBe` [2..11]
 
+    context "summing using foldlC" $
+        it "should be increased by 1" $
+            runConduitPure ( yieldMany [1..10] .| foldlC (+) 0 )
+        `shouldBe` 55
+
     context "yielding fibonnacci series" $
         it "should be increased by 1" $
-            runConduitPure ( yieldMany [1..10] .| scanlC (+) 0 .| sinkList )
-        `shouldBe` [2..11]
+            runConduitPure ( yieldMany [1..10] .| scanlC (+) 0 .| (dropC 1 >> sinkList) )
+        `shouldBe` [1, 3, 6,10, 15, 21, 28, 36, 45, 55]
+
+    context "yielding fibonnacci series using scanlC" $
+            it "should be increased by 1" $
+                runConduitPure ( yieldMany [1..10] .| scanl1C (+) .| sinkList )
+            `shouldBe` [1, 3, 6,10, 15, 21, 28, 36, 45, 55]
 
     context "using test data" $
           it "should produce a stream of orderbooks" $
