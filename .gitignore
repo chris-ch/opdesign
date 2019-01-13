@@ -12,4 +12,5 @@ stack.yaml
 out
 stack.yaml
 opdesign.cabal
+localdata
 

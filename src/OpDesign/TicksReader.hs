@@ -9,11 +9,11 @@ import Data.List (sort)
 import Data.Text (pack, unpack)
 import Text.Regex (Regex, matchRegex, mkRegex)
 import Data.Map (keys)
-import Conduit ((.|), Conduit, ConduitM, ResourceT, yieldMany, runConduit, mapM_C)
+import Conduit ((.|), Conduit, ConduitT, ResourceT, yieldMany, runConduit, mapM_C)
 import Data.ByteString (ByteString)
 import Data.Void (Void)
 
-readTicksFiles :: FilePath -> ConduitM ByteString Void (ResourceT IO) () -> EntrySelector -> IO ()
+readTicksFiles :: FilePath -> ConduitT ByteString Void (ResourceT IO) () -> EntrySelector -> IO ()
 readTicksFiles ticksArchivePath sinkTicks entry = withArchive ticksArchivePath $ sourceEntry entry sinkTicks
 
 -- checks whether we are processing a valid csv file containing ticks data
@@ -28,7 +28,7 @@ extractEntries ticksArchivePath = withArchive ticksArchivePath loadEntries
 selectEntries :: (EntrySelector -> Bool) -> [EntrySelector] -> [EntrySelector]
 selectEntries filterOp = sort . filter filterOp
 
-readTicks :: FilePath -> String -> ConduitM ByteString Void (ResourceT IO) () -> IO (ConduitM () Void IO ())
+readTicks :: FilePath -> String -> ConduitT ByteString Void (ResourceT IO) () -> IO (ConduitT () Void IO ())
 readTicks ticksFile csvFilePattern sinkTicks = do
     entries <- extractEntries ticksFile :: IO [EntrySelector]
     let csvEntries = selectEntries (isTickFile csvFilePattern) entries

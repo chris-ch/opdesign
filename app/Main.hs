@@ -7,7 +7,7 @@ import Data.Data (Data, Typeable)
 import Data.Void (Void)
 import Data.ByteString (ByteString)
 import Conduit ((.|))
-import Conduit (Conduit, ConduitM, Sink, ResourceT)
+import Conduit (Conduit, ConduitT, Sink, ResourceT)
 import Conduit (runConduit)
 
 import System.Console.CmdArgs (def, help, opt, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
@@ -31,7 +31,7 @@ opdesign = cmdArgsMode OpDesign{
     }
 
 -----------------------------------------------------------
-outputStream :: ConduitM ByteString Void (ResourceT IO) ()
+outputStream :: ConduitT ByteString Void (ResourceT IO) ()
 outputStream = tickStream .| orderBookStream .| Cmb.print
           
 -----------------------------------------------------------

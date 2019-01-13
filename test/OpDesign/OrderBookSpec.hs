@@ -2,7 +2,7 @@ module OpDesign.OrderBookSpec where
 
 import SpecHelper
 
-import Conduit (ConduitM)
+import Conduit (ConduitT)
 import Conduit (yieldMany, runConduitPure, mapC, decodeUtf8C, sinkList)
 import Conduit ((.|))
 
@@ -26,32 +26,12 @@ testInputData = lines "\
 \2014-10-28 06:53:05.000000,BEST_BID,8938.5,8.0,S\n\
 \"
 
-processOrderBook :: OrderBook -> OrderBook
-processOrderBook orderBook = orderBook
-
-strategy :: Monad m => ConduitM OrderBook OrderBook m ()
-strategy = mapC processOrderBook
-
 spec :: Spec
-spec = describe "Testing pipes" $ do
-    context "simple" $
-        it "should yield 3" $ 
-            1 + 2 
-        `shouldBe` 3
+spec = describe "Testing reading ticks using pipes" $ do
 
-    context "yielding array of 10 first integers" $
-        it "should yield many" $ 
-            runConduitPure (yieldMany [1..10] .| sinkList)
-        `shouldBe` [1..10]
-
-    context "yielding array of 10 first integers increased by 1" $
-        it "should be increased by 1" $
-            runConduitPure ( yieldMany [1..10] .| mapC (+ 1) .| sinkList )
-        `shouldBe` [2..11]
-
-    context "with short test set" $
-          it "should generate seris of best order books" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream .| strategy .| sinkList)
+    context "simple scalping" $
+          it "should run strategy" $
+            runConduitPure ( yieldMany testInputData .| orderBookStream .| sinkList)
         `shouldBe` [
             OrderBook {bidVolume = Nothing, bidPrice = Nothing, askPrice = Nothing, askVolume = Nothing},
             OrderBook {bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
