@@ -24,7 +24,7 @@ instance Show Volume where
     
 -- Example: "2014-10-28 06:53:05.000000,TRADE,8938.5,0.0,S"
 data TickData = TickData {
-    date :: UTCTime,
+    tickDate :: UTCTime,
     tickType :: TickType,
     price :: Price,
     volume :: Volume,
@@ -33,7 +33,7 @@ data TickData = TickData {
 
 tickFields :: String -> TickData
 tickFields line = TickData {
-    date = fieldDate,
+    tickDate = fieldDate,
     tickType = fieldTickType,
     price = fieldPrice,
     volume = fieldVolume,
@@ -47,13 +47,15 @@ tickFields line = TickData {
         fieldFlag = fields!!4
 
 data OrderBook = OrderBook {
+    date :: UTCTime,
     bidVolume :: Maybe Volume,
     bidPrice :: Maybe Price,
     askPrice :: Maybe Price,
     askVolume :: Maybe Volume} deriving (Show, Eq)
 
-emptyOrderBook :: OrderBook
-emptyOrderBook = OrderBook {
+emptyOrderBook :: UTCTime -> OrderBook
+emptyOrderBook timestamp = OrderBook {
+    date = timestamp,
     bidVolume = Nothing,
     bidPrice = Nothing,
     askPrice = Nothing,
@@ -63,6 +65,7 @@ emptyOrderBook = OrderBook {
 fromTickData :: TickData -> OrderBook
 fromTickData tickData
     | tickType tickData == BestBid = OrderBook {
+        date = tickDate tickData,
         bidVolume = Just $ volume tickData,
         bidPrice = Just $ price tickData,
         askVolume = Nothing,
@@ -70,12 +73,13 @@ fromTickData tickData
 
         }
     | tickType tickData == BestAsk = OrderBook {
+        date = tickDate tickData,
         bidVolume = Nothing,
         bidPrice = Nothing,
         askVolume = Just $ volume tickData,
         askPrice = Just $ price tickData
         }
-    | otherwise  = emptyOrderBook
+    | otherwise  = emptyOrderBook $ tickDate tickData
 
 
 updateOrderBookField :: Maybe a -> Maybe a -> Maybe a
@@ -85,6 +89,7 @@ updateOrderBookField Nothing Nothing = Nothing
 
 updateOrderBook :: OrderBook -> OrderBook -> OrderBook
 updateOrderBook orderBook orderBookUpdate = OrderBook {
+    date = date orderBookUpdate,
     bidVolume = updateOrderBookField (bidVolume orderBook) (bidVolume orderBookUpdate),
     bidPrice = updateOrderBookField (bidPrice orderBook) (bidPrice orderBookUpdate),
     askPrice = updateOrderBookField (askPrice orderBook) (askPrice orderBookUpdate),

@@ -8,6 +8,7 @@ import qualified Data.Conduit.Text as CText (lines)
 import Data.List (dropWhileEnd)
 import Data.Text (pack, unpack)
 import Data.ByteString (ByteString)
+import Data.Time (UTCTime)
 
 import Conduit ((.|))
 import Conduit (ConduitT, ResourceT)
@@ -26,7 +27,7 @@ tickStream = decodeUtf8C
                 .| mapC dos2unix
 
 accumulate :: Monad m => ConduitT OrderBook OrderBook m ()
-accumulate = scanlC updateOrderBook emptyOrderBook
+accumulate = scanlC updateOrderBook ( emptyOrderBook (read "2000-01-01 00:00:00" :: UTCTime))
 
 orderBookStream :: Monad m => ConduitT String OrderBook m ()
 orderBookStream = mapC tickFields .| mapC fromTickData .| accumulate
