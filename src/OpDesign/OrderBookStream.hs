@@ -14,7 +14,7 @@ import Conduit ((.|))
 import Conduit (ConduitT, ResourceT, await)
 import Conduit (mapC, decodeUtf8C, scanlC)
 
-import OpDesign.OrderBook (OrderBook, emptyOrderBook, updateOrderBook, fromTickData, tickFields)
+import OpDesign.OrderBook (OrderBook, updateOrderBook, fromTickData, tickFields)
 
 scanl1C :: Monad m => (a -> a -> a) -> ConduitT a a m ()
 scanl1C f = await >>= maybe (return ()) (scanlC f)
@@ -28,9 +28,6 @@ tickStream = decodeUtf8C
                 .| CText.lines
                 .| mapC unpack
                 .| mapC dos2unix
-
-accumulate :: Monad m => ConduitT OrderBook OrderBook m ()
-accumulate = scanlC updateOrderBook ( emptyOrderBook (read "2000-01-01 00:00:00" :: UTCTime))
 
 orderBookStream :: Monad m => ConduitT String OrderBook m ()
 orderBookStream = mapC tickFields .| mapC fromTickData .| scanl1C updateOrderBook
