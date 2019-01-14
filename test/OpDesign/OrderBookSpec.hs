@@ -34,12 +34,6 @@ testInputData = lines "\
 \2014-10-28 06:53:05.000000,BEST_BID,8938.5,8.0,S\n\
 \"
 
-fibs :: [Int]
-fibs = 0 : 1 : zipWith (+) fibs (drop 1 fibs)
-
-indexedFibs :: (Monad m) => ConduitT () (Int, Int) m ()
-indexedFibs = DC.getZipSource $ (,) <$> DC.ZipSource (yieldMany [1..]) <*> DC.ZipSource (yieldMany fibs)
-
 spec :: Spec
 spec = describe "Testing reading ticks using pipes" $ do
 
@@ -102,7 +96,14 @@ spec = describe "Testing reading ticks using pipes" $ do
         `shouldBe` [10, 14, 18, 22, 26, 30, 34]
 
     context "zipping sources" $
-        it "should zip 2 sources" $ do
+        let
+            fibs :: [Int]
+            fibs = 0 : 1 : zipWith (+) fibs (drop 1 fibs)
+        
+            indexedFibs :: (Monad m) => ConduitT () (Int, Int) m ()
+            indexedFibs = DC.getZipSource $ (,) <$> DC.ZipSource (yieldMany [1..]) <*> DC.ZipSource (yieldMany fibs)
+        in
+        it "should zip 2 sources" $
             runConduitPure ( indexedFibs .| takeC 10 .| sinkList )
         `shouldBe` [(1, 0), (2, 1), (3, 1), (4, 2), (5, 3), (6, 5), (7, 8), (8, 13), (9, 21), (10, 34)]
 

@@ -81,7 +81,6 @@ fromTickData tickData
         }
     | otherwise  = emptyOrderBook $ tickDate tickData
 
-
 updateOrderBookField :: Maybe a -> Maybe a -> Maybe a
 updateOrderBookField _ (Just newFieldValue) = Just newFieldValue
 updateOrderBookField (Just oldFieldValue) Nothing = Just oldFieldValue
@@ -95,3 +94,8 @@ updateOrderBook orderBook orderBookUpdate = OrderBook {
     askPrice = updateOrderBookField (askPrice orderBook) (askPrice orderBookUpdate),
     askVolume = updateOrderBookField (askVolume orderBook) (askVolume orderBookUpdate)
     }
+
+instance Semigroup OrderBook where
+    (<>) = updateOrderBook
+
+    
