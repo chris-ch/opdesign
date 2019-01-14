@@ -1,9 +1,13 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 module OpDesign.OrderBookSpec where
 
 import SpecHelper
 
+import Prelude (String, Int, Integer, Monad, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (>>))
 import Conduit (ConduitT, ResourceT)
-import Conduit (yieldMany, runConduitPure, mapC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, decodeUtf8C, sinkList)
+import Conduit (yieldMany, runConduit, runConduitPure, mapC, takeC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, decodeUtf8C, sinkList)
 import Conduit ((.|))
 
 import Data.List (sum)
@@ -11,6 +15,7 @@ import Text.Show (show)
 import Data.Time (UTCTime)
 import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM) 
 import qualified Data.Conduit.Combinators as Cmb (print)
+import qualified Conduit as DC (ZipSource(..), getZipSource)
 
 import OpDesign.OrderBookStream (orderBookStream, scanl1C)
 
@@ -28,6 +33,12 @@ testInputData = lines "\
 \2014-10-28 06:53:04.000000,BEST_BID,8940.0,6.0,S\n\
 \2014-10-28 06:53:05.000000,BEST_BID,8938.5,8.0,S\n\
 \"
+
+fibs :: [Int]
+fibs = 0 : 1 : zipWith (+) fibs (drop 1 fibs)
+
+indexedFibs :: (Monad m) => ConduitT () (Int, Int) m ()
+indexedFibs = DC.getZipSource $ (,) <$> DC.ZipSource (yieldMany [1..]) <*> DC.ZipSource (yieldMany fibs)
 
 spec :: Spec
 spec = describe "Testing reading ticks using pipes" $ do
@@ -89,6 +100,11 @@ spec = describe "Testing reading ticks using pipes" $ do
                 .| mapC sum
                 .| sinkList )
         `shouldBe` [10, 14, 18, 22, 26, 30, 34]
+
+    context "zipping sources" $
+        it "should zip 2 sources" $ do
+            runConduitPure ( indexedFibs .| takeC 10 .| sinkList )
+        `shouldBe` [(1, 0), (2, 1), (3, 1), (4, 2), (5, 3), (6, 5), (7, 8), (8, 13), (9, 21), (10, 34)]
 
     context "using test data" $
           it "should produce a stream of orderbooks" $
