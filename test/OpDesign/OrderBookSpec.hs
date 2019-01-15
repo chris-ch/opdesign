@@ -5,9 +5,10 @@ module OpDesign.OrderBookSpec where
 
 import SpecHelper
 
-import Prelude (String, Int, Integer, Monad, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (>>))
+import Prelude (String, Int, Integer, Monad, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (>>))
+import Data.Void (Void)
 import Conduit (ConduitT, ResourceT)
-import Conduit (yieldMany, runConduit, runConduitPure, mapC, takeC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, decodeUtf8C, sinkList)
+import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, decodeUtf8C, sinkList)
 import Conduit ((.|))
 
 import Data.List (sum)
@@ -42,15 +43,15 @@ spec = describe "Testing reading ticks using pipes" $ do
             1 + 2 
         `shouldBe` 3
 
-    context "transforming to sring" $
-        it "should produce strings" $
-            runConduitPure ( yieldMany [1..10] .| mapC show .| sinkList )
-        `shouldBe` ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
-
     context "yielding array of 10 first integers" $
         it "should yield many" $ 
             runConduitPure (yieldMany [1..10] .| sinkList)
         `shouldBe` [1..10]
+
+    context "transforming to string" $
+        it "should produce strings" $
+            runConduitPure ( yieldMany [1..10] .| mapC show .| sinkList )
+        `shouldBe` ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
 
     context "grouped values" $
         it "should yield many" $ 
@@ -107,8 +108,47 @@ spec = describe "Testing reading ticks using pipes" $ do
             runConduitPure ( indexedFibs .| takeC 10 .| sinkList )
         `shouldBe` [(1, 0), (2, 1), (3, 1), (4, 2), (5, 3), (6, 5), (7, 8), (8, 13), (9, 21), (10, 34)]
 
+    context "creating a diff" $
+        let
+            input :: (Monad m) => ConduitT () Int m ()
+            input = yieldMany [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 1, 1]
+
+            sliding2 :: (Monad m) => ConduitT Int [Int] m ()
+            sliding2  = slidingWindowC 2
+
+            diff :: [Int] -> Int
+            diff (a:b:_) = b - a
+            
+            expected :: [Int]
+            expected = [0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0]
+        in
+        it "should diff input" $
+            runConduitPure ( input .| sliding2 .| mapC diff .| sinkList )
+        `shouldBe` expected
+
+    context "zipping stream with its own diff" $
+        let
+            input :: (Monad m) => ConduitT () Int m ()
+            input = yieldMany [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 1, 1]
+
+            sliding2 :: (Monad m) => ConduitT Int [Int] m ()
+            sliding2  = slidingWindowC 2
+
+            diff :: [Int] -> Int
+            diff (a:b:_) = b - a
+            
+            joined :: (Monad m) => ConduitT () (Int, Int) m ()
+            joined = DC.getZipSource $ (,) <$> DC.ZipSource input <*> DC.ZipSource (yield 0 >> input .| sliding2 .| mapC diff)
+
+            expected :: [(Int, Int)]
+            expected = [(1, 0), (1, 0), (1, 0), (1, 0), (2, 1), (2, 0), (2, 0), (2, 0), (3, 1), (3, 0), (1, -2), (1, 0)]
+        in
+        it "should zip input with diff" $
+            runConduitPure ( joined .| sinkList )
+        `shouldBe` expected
+
     context "using test data" $
-          it "should produce a stream of orderbooks" $
+        it "should produce a stream of orderbooks" $
             runConduitPure ( yieldMany testInputData .| orderBookStream .| sinkList)
         `shouldBe` [
             OrderBook {date = (read "2014-10-28 06:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
