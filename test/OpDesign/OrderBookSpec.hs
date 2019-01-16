@@ -5,7 +5,7 @@ module OpDesign.OrderBookSpec where
 
 import SpecHelper
 
-import Prelude (String, Int, Integer, Monad, Monoid, mappend, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>))
+import Prelude (String, Int, Integer, Monad, Monoid, Ord, Num, fromInteger, mappend, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>))
 import Data.Void (Void)
 import Conduit (ConduitT, ResourceT)
 import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, decodeUtf8C, sinkList)
@@ -152,27 +152,23 @@ spec = describe "Testing reading ticks using pipes" $ do
             input :: (Monad m) => ConduitT () Int m ()
             input = yieldMany [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 1, 1]
 
-            sliding2 :: (Monad m) => ConduitT Int [Int] m ()
-            sliding2  = slidingWindowC 2
-
-            diff :: [Int] -> Int
-            diff (a:b:_) = b - a
+            delta :: (Num a) => [a] -> a
+            delta (m:n:_) = n - m
             
-            joined :: (Monad m) => ConduitT () (Int, Int) m ()
-            joined = DC.getZipSource $ (,) <$> DC.ZipSource input <*> DC.ZipSource (yield 0 >> input .| sliding2 .| mapC diff)
-
-            operator :: (Monad m) => (ConduitT () a m ()) -> (ConduitT () a m ()) -> (a -> a -> a) -> (ConduitT () a m ())
-            operator signal1 signal2 func = DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
+            shift :: (Monad m, Num a) => Int -> (ConduitT () a m ()) -> (ConduitT () a m ())
+            shift count signal = yield (fromInteger 0) >> signal .| slidingWindowC (count + 1) .| mapC delta
 
             input1 = input
-            input2 = yield 0 >> input .| sliding2 .| mapC diff
-            func = (*)
+            input2 = shift 1 input
+
+            operator :: (Monad m) => (a -> a -> a) -> (ConduitT () a m ()) -> (ConduitT () a m ()) -> (ConduitT () a m ())
+            operator func signal1 signal2 = DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
 
             expected :: [Int]
             expected = [0, 0, 0, 0, 2, 0, 0, 0, 3, 0, -2, 0]
         in
-        it "should zip input with diff" $
-            runConduitPure ( operator input1 input2 (*) .| sinkList )
+        it "output = input * delta" $
+            runConduitPure ( operator (*) input1 input2 .| sinkList )
         `shouldBe` expected
 
     context "using test data" $
