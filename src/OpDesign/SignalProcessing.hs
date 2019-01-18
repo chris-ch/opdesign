@@ -12,13 +12,13 @@ import qualified Conduit as DC (ZipSource(..), getZipSource)
 
 type Signal a = ConduitT () a Identity ()
 
-shift :: (Monad m, Num a) => Int -> (ConduitT () a m ()) -> (ConduitT () a m ())
+shift :: (Num a) => Int -> Signal a -> Signal a
 shift count signal = yield (fromInteger 0) >> signal .| slidingWindowC (count + 1) .| mapC delta
     where
         delta :: (Num a) => [a] -> a
         delta (m:n:_) = n - m 
 
-operator :: (Monad m) => (a -> a -> a) -> Signal a -> Signal a -> Signal a
+operator :: (a -> a -> a) -> Signal a -> Signal a -> Signal a
 operator func signal1 signal2 = DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
 
 -- period is measured in number of samples
