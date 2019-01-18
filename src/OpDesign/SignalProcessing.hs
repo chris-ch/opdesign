@@ -42,5 +42,14 @@ genSquare countZero countOne = yieldMany $ cycle $ (replicate countZero 0) ++ (r
 genConstant :: (Num a) => a -> Signal a
 genConstant k = yieldMany $ cycle [k]
 
---opNegate :: (Num a) => Signal a
---opNegate = mapC (\x -> -x)
+opNegate :: (Num a) => Signal a -> Signal a
+opNegate = operator (-) (genConstant 0)
+
+opAdd :: (Num a) => Signal a -> Signal a -> Signal a
+opAdd input1 input2 = operator (+) input1 input2
+
+opSub :: (Num a) => Signal a -> Signal a -> Signal a
+opSub input1 input2 = operator (-) input1 input2
+
+opMul :: (Num a) => Signal a -> Signal a -> Signal a
+opMul input1 input2 = operator (*) input1 input2
