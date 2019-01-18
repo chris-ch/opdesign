@@ -23,7 +23,7 @@ operator func signal1 signal2 = DC.getZipSource $ func <$> DC.ZipSource signal1 
 
 -- period is measured in number of samples
 sinusoidal :: Int -> Int -> Signal Int
-sinusoidal period amplitude= yieldMany [round ( (fromIntegral amplitude) * sin (2 * pi * scale period (n - 1)) ) | n  <- [1..] :: [Int]]
+sinusoidal period amplitude = yieldMany [round ( (fromIntegral amplitude) * sin (scale period n) ) | n  <- [0..]]
     where
         scale :: Int -> Int -> Double
-        scale m n = ((fromIntegral n) / (fromIntegral m))
+        scale m n = 2 * pi * fromIntegral n / fromIntegral m
