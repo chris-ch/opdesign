@@ -18,7 +18,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, sinusoidal, shift, operator)
+import OpDesign.SignalProcessing (Signal, genSinusoid, shift, operator, genStep, genSquare, genConstant) --, opNegate)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -27,11 +27,6 @@ spec = describe "Testing signal processing operators" $ do
         it "should yield 3" $ 
             1 + 2 
         `shouldBe` 3
-
-    context "yielding sinusoidal sequence" $
-        it "should generate predited int sequence" $
-            runConduitPure (sinusoidal 100 200 .| takeC 120 .| (dropC 116 >> sinkList))
-        `shouldBe` [169, 175, 181, 186]
 
     context "yielding array of 10 first integers" $
         it "should yield many" $ 
@@ -62,6 +57,34 @@ spec = describe "Testing signal processing operators" $ do
         it "should compute sum of integers up to 10" $
             runConduitPure ( yieldMany [1..10] .| foldlC (+) 0 )
         `shouldBe` 55
+
+    context "yielding sinusoidal sequence" $
+        it "should generate predicted int sequence" $
+            runConduitPure (genSinusoid 100 200 .| takeC 120 .| (dropC 116 >> sinkList))
+        `shouldBe` [169, 175, 181, 186]
+
+    context "yielding step signal" $
+        it "should generate predicted int sequence" $
+            runConduitPure (genStep 10 .| takeC 20 .| sinkList)
+        `shouldBe` [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1]
+
+    context "yielding square signal" $
+        it "should generate predicted int sequence" $
+            runConduitPure (genSquare 8 2 .| takeC 22 .| sinkList)
+        `shouldBe` [0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0]
+
+    context "yielding a constant signal" $
+        it "should generate predicted int sequence" $
+            runConduitPure (genConstant 2 .| takeC 22 .| sinkList)
+        `shouldBe` [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
+
+    context "negates input signal" $
+        let
+            opNegate = operator (-) (genConstant 0)
+        in
+        it "should generate predicted int sequence" $
+            runConduitPure (opNegate (genSquare 8 2) .| takeC 22 .| sinkList)
+        `shouldBe` [0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,-1,0,0]
 
     context "sliding window" $
         it "should create sliding windows" $
