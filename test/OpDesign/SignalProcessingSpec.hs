@@ -5,10 +5,10 @@ module OpDesign.SignalProcessingSpec where
 
 import SpecHelper
 
-import Prelude (String, Int, Integer, Monad, Monoid, Ord, Num, fromInteger, mappend, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>))
+import Prelude (String, Int, Integer, Monad, Monoid, Ord, Num, fromInteger, mappend, read, zipWith, last, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>))
 import Data.Void (Void)
 import Conduit (ConduitT, ResourceT)
-import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, sinkList)
+import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, lastC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, sinkList)
 import Conduit ((.|))
 
 import Data.List (sum)
@@ -18,7 +18,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (shift, operator)
+import OpDesign.SignalProcessing (Signal, sinusoidal, shift, operator)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -27,6 +27,11 @@ spec = describe "Testing signal processing operators" $ do
         it "should yield 3" $ 
             1 + 2 
         `shouldBe` 3
+
+    context "yielding sinusoidal sequence" $
+        it "should generate predited int sequence" $
+            runConduitPure (sinusoidal 100 200 .| takeC 120 .| (dropC 116 >> sinkList))
+        `shouldBe` [169, 175, 181, 186]
 
     context "yielding array of 10 first integers" $
         it "should yield many" $ 
@@ -124,10 +129,10 @@ spec = describe "Testing signal processing operators" $ do
 
     context "operator applied on two sources" $
         let
-            input1 :: (Monad m) => ConduitT () Int m ()
+            input1 :: Signal Int
             input1 = yieldMany [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 1, 1]
 
-            input2 :: (Monad m) => ConduitT () Int m ()
+            input2 :: Signal Int
             input2 = shift 1 input1
 
             expected :: [Int]
