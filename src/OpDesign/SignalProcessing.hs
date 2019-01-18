@@ -18,7 +18,7 @@ shift count signal = yield (fromInteger 0) >> signal .| slidingWindowC (count + 
         delta :: (Num a) => [a] -> a
         delta (m:n:_) = n - m 
 
-operator :: (Monad m) => (a -> a -> a) -> (ConduitT () a m ()) -> (ConduitT () a m ()) -> (ConduitT () a m ())
+operator :: (Monad m) => (a -> a -> a) -> Signal a -> Signal a -> Signal a
 operator func signal1 signal2 = DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
 
 -- period is measured in number of samples
