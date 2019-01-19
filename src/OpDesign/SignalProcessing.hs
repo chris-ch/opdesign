@@ -13,6 +13,7 @@ import Conduit ((.|))
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
 type Signal a = ConduitT () a Identity ()
+type Transfer a b = ConduitT a b Identity ()
 
 shift :: (Num a) => Int -> Signal a -> Signal a
 shift count signal = yield (fromInteger 0) >> signal .| slidingWindowC (count + 1) .| mapC delta
@@ -44,6 +45,9 @@ genConstant k = yieldMany $ cycle [k]
 
 opNegate :: (Num a) => Signal a -> Signal a
 opNegate = operator (-) (genConstant 0)
+
+tfNegate :: (Num a) => Transfer a a
+tfNegate =  mapC (\x -> -x) 
 
 opAdd :: (Num a) => Signal a -> Signal a -> Signal a
 opAdd input1 input2 = operator (+) input1 input2

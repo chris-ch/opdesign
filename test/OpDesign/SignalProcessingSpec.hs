@@ -18,7 +18,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, genSinusoid, shift, operator, genStep, genSquare, genConstant, opNegate)
+import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -80,16 +80,7 @@ spec = describe "Testing signal processing operators" $ do
 
     context "negates input signal" $
         it "should generate predicted int sequence" $
-            runConduitPure (opNegate (genSquare 8 2) .| takeC 22 .| sinkList)
-        `shouldBe` [0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,-1,0,0]
-
-    context "negates input signal (2)" $
-        let
-            opNeg2 :: (Monad m, Num a) => ConduitT a a m ()
-            opNeg2 =  mapC (\x -> -x) 
-        in
-        it "should generate predicted int sequence" $
-            runConduitPure (genSquare 8 2 .| opNeg2 .| takeC 22 .| sinkList)
+            runConduitPure (genSquare 8 2 .| tfNegate .| takeC 22 .| sinkList)
         `shouldBe` [0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,-1,0,0]
 
     context "sliding window" $
