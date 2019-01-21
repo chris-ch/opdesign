@@ -5,10 +5,13 @@ module OpDesign.SignalProcessingSpec where
 
 import SpecHelper
 
-import Prelude (String, Int, Integer, Monad, Monoid, Ord, Num, fromInteger, mappend, read, zipWith, last, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>))
+import Prelude (Maybe(..), IO, String, Int, Integer, Monad, Monoid, Ord, Num)
+import Prelude (fromInteger, mappend, read, zipWith, last, drop, print, scanl, maybe, return)
+import Prelude (($), (<*>), (<$>), (+), (-), (*), (>>), (>>=))
 import Data.Void (Void)
 import Conduit (ConduitT, ResourceT)
-import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, lastC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, sinkList)
+import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, mapMC, takeC, lastC)
+import Conduit (await, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, sinkList)
 import Conduit ((.|))
 
 import Data.List (sum)
@@ -161,3 +164,18 @@ spec = describe "Testing signal processing operators" $ do
         it "output = input * delta" $
             runConduitPure ( operator (*) input1 input2 .| sinkList )
         `shouldBe` expected
+
+    context "IIR filter with scanlC" $
+        let
+            input :: (Monad m) => ConduitT () Int m ()
+            input = yieldMany [1, 1, 1, 1, 1, 1, 1, 1]
+
+            integrate :: (Monad m) => ConduitT Int Int m ()
+            integrate = await >>= maybe (return ()) (scanlC (+))
+
+            expected :: [Int]
+            expected = [1, 2, 3, 4, 5, 6, 7, 8]
+        in
+        it "output = integ(input)" $ do
+            res <- runConduit ( input .| integrate .| sinkList )
+            res `shouldBe` expected
