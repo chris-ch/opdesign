@@ -5,9 +5,9 @@ module OpDesign.SignalProcessingSpec where
 
 import SpecHelper
 
-import Prelude (Maybe(..), IO, String, Bool(..), Int, Integer, Monad, Monoid, Ord, Num)
+import Prelude (Maybe(..), IO, String, Bool(..), Int, Integer, Rational, Monad, Monoid, Ord, Num)
 import Prelude (fromInteger, mappend, read, zipWith, last, drop, print, scanl, maybe, return, not)
-import Prelude (($), (<*>), (<$>), (+), (-), (*), (>>), (>>=))
+import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=))
 import Control.Monad.State (State, evalState, get, put)
 import Data.Void (Void)
 import Conduit (ConduitT, ResourceT)
@@ -181,27 +181,47 @@ spec = describe "Testing signal processing operators" $ do
             res <- runConduit ( input .| integrate .| sinkList )
             res `shouldBe` expected
 
-    context "State" $
+    context "Game state" $
         let
             transform :: String -> State GameState Int
             transform [] = do
-                    (_, score) <- get
-                    return score
+                (_, score) <- get
+                return score
             
             transform (x:xs) = do
-                (on, score) <- get
+                (isGameOn, score) <- get
                 case x of
-                    'a' | on -> put (on, score + 1)
-                    'b' | on -> put (on, score - 1)
-                    'c' | on -> put (not on, score)
-                    _   | on -> put (on, score)
+                    'a' | isGameOn  -> put (isGameOn, score + 1)
+                    'b' | isGameOn  -> put (isGameOn, score - 1)
+                    'c'             -> put (not isGameOn, score)
+                    _               -> put (isGameOn, score)
+
                 transform xs
                 
-            expected = 12
+            expected = 6
         in
         it "shows result according to state" $ do
-                final <- evalState (transform "abcaacbbcabbab") (False, 0)
-                final `shouldBe` expected
+            let final = evalState (transform "abcaaacbacabaaa") (False, 0)
+            final `shouldBe` expected
 
+    context "Integrator as IIR filter y_1 = y_0 + 0.5 * (x_1 + x_0)" $
+        let
+            integrator :: [Rational] -> State (Rational, Rational) Rational
+            integrator [] = do
+                (y_0, x_0) <- get
+                return y_0
+                
+            integrator (x:xs) = do
+                (y_0, x_0) <- get
+                let y_1 = y_0 + (x + x_0) / 2
+                put (y_1, x)
+                integrator xs
+                    
+            expected = 8.5
+        in
+        it "shows result according to state" $ do
+            let final = evalState (integrator [1, 1, 1, 1, 1, 1, 1, 1, 1]) (0, 0)
+            final `shouldBe` expected
+    
 
 type GameState = (Bool, Int)
