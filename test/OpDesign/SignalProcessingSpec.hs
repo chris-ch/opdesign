@@ -211,10 +211,10 @@ spec = describe "Testing signal processing operators" $ do
                 (y_0, x_0) <- get
                 return y_0
                 
-            integrator (x:xs) = do
+            integrator (x_1:xs) = do
                 (y_0, x_0) <- get
-                let y_1 = y_0 + (x + x_0) / 2
-                put (y_1, x)
+                let y_1 = y_0 + (x_1 + x_0) / 2
+                put (y_1, x_1)
                 integrator xs
                     
             expected = 8.5
