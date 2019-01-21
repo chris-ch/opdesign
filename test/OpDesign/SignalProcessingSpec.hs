@@ -5,9 +5,10 @@ module OpDesign.SignalProcessingSpec where
 
 import SpecHelper
 
-import Prelude (Maybe(..), IO, String, Int, Integer, Monad, Monoid, Ord, Num)
-import Prelude (fromInteger, mappend, read, zipWith, last, drop, print, scanl, maybe, return)
+import Prelude (Maybe(..), IO, String, Bool(..), Int, Integer, Monad, Monoid, Ord, Num)
+import Prelude (fromInteger, mappend, read, zipWith, last, drop, print, scanl, maybe, return, not)
 import Prelude (($), (<*>), (<$>), (+), (-), (*), (>>), (>>=))
+import Control.Monad.State (State, evalState, get, put)
 import Data.Void (Void)
 import Conduit (ConduitT, ResourceT)
 import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, mapMC, takeC, lastC)
@@ -179,3 +180,28 @@ spec = describe "Testing signal processing operators" $ do
         it "output = integ(input)" $ do
             res <- runConduit ( input .| integrate .| sinkList )
             res `shouldBe` expected
+
+    context "State" $
+        let
+            transform :: String -> State GameState Int
+            transform [] = do
+                    (_, score) <- get
+                    return score
+            
+            transform (x:xs) = do
+                (on, score) <- get
+                case x of
+                    'a' | on -> put (on, score + 1)
+                    'b' | on -> put (on, score - 1)
+                    'c' | on -> put (not on, score)
+                    _   | on -> put (on, score)
+                transform xs
+                
+            expected = 12
+        in
+        it "shows result according to state" $ do
+                final <- evalState (transform "abcaacbbcabbab") (False, 0)
+                final `shouldBe` expected
+
+
+type GameState = (Bool, Int)
