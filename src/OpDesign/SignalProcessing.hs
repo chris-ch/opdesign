@@ -4,12 +4,13 @@
 
 module OpDesign.SignalProcessing where
 
-import Prelude (IO, Int, Monad, Num, Double)
-import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin)
+import Prelude (IO, Int, Monad, Num, Double, Maybe(..))
+import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin, return)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 import Conduit (ConduitT, Identity)
-import Conduit (yield, yieldMany, mapC, slidingWindowC)
+import Conduit (yield, yieldMany, mapC, slidingWindowC, await)
 import Conduit ((.|))
+import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
 type Signal a = ConduitT () a Identity ()

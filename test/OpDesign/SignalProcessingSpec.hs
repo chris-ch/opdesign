@@ -207,9 +207,8 @@ spec = describe "Testing signal processing operators" $ do
             input :: (Monad m) => ConduitT () Int m ()
             input = yieldMany [1, 1, 1, 1, 1, 1, 1, 1]
 
-            counterC = go
-                where
-                go = do
+            counterC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
+            counterC = do
                     x0 <-  await
                     case x0 of
                         Nothing -> return ()
@@ -217,13 +216,26 @@ spec = describe "Testing signal processing operators" $ do
                             lift $ modify (+1)
                             r <- lift get
                             yield r
-                            go
+                            counterC
+
+            integratorC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
+            integratorC = do
+                    x0 <-  await
+                    case x0 of
+                        Nothing -> return ()
+                        Just x -> do
+                            y0 <- lift get
+                            lift $ put (y0 + 1)
+                            r <- lift get
+                            yield r
+                            integratorC
 
             expected = [1, 2, 3, 4, 5, 6, 7, 8]
         in
         it "shows result according to state" $ do
-            res <- (runConduit ( input .| evalStateC 0 counterC   .| sinkList ))
+            res <- (runConduit ( input .| evalStateC 0 integratorC .| sinkList ))
             res `shouldBe` expected
+
 {-
     context "Integrator as IIR filter y_1 = y_0 + 0.5 * (x_1 + x_0)" $
         let
