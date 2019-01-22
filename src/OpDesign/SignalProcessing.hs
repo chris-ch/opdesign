@@ -1,10 +1,12 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module OpDesign.SignalProcessing where
 
-import Prelude (IO, Int, Monad, Num, Double, Maybe(..))
+import Prelude (IO, Int, Monad, Num, Double, Rational, Maybe(..), Fractional)
 import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin, return)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 import Conduit (ConduitT, Identity)
@@ -58,3 +60,18 @@ opSub input1 input2 = operator (-) input1 input2
 
 opMul :: (Num a) => Signal a -> Signal a -> Signal a
 opMul input1 input2 = operator (*) input1 input2
+
+type IntegratorState = (Rational, Rational)
+
+--integratorC :: (MonadState (a, a) m, Num a) => ConduitT a a m ()
+integratorC :: (MonadState IntegratorState m) => ConduitT Rational Rational m ()
+integratorC = do
+        input <- await
+        case input of
+            Nothing -> return ()
+            Just x1 -> do
+                (y0, x0) <- lift get
+                let y1 = y0 + (x1 + x0) / 2
+                lift $ put (y1, x1)
+                yield y1
+                integratorC

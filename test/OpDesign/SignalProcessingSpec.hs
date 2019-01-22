@@ -24,7 +24,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate)
+import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, integratorC)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -226,23 +226,11 @@ spec = describe "Testing signal processing operators" $ do
 
     context "Integrator using State and Conduit" $
         let
-            input :: (Monad m) => ConduitT () Int m ()
+            input :: (Monad m) => ConduitT () Rational m ()
             input = yieldMany [2, 2, 2, 1, 1, 1, -1, -1]
 
-            integratorC :: (MonadState a m, Num a) => ConduitT a a m ()
-            integratorC = do
-                    input <- await
-                    case input of
-                        Nothing -> return ()
-                        Just x1 -> do
-                            y0 <- lift get
-                            let y1 = y0 + x1
-                            lift $ put y1
-                            yield y1
-                            integratorC
-
-            expected = [2, 4, 6, 7, 8, 9, 8, 7]
+            expected = [1, 3, 5, 6.5, 7.5, 8.5, 8.5, 7.5]
         in
         it "shows result according to state" $ do
-            res <- (runConduit ( input .| evalStateC 0 integratorC .| sinkList ))
+            res <- (runConduit ( input .| evalStateC (0, 0) integratorC .| sinkList ))
             res `shouldBe` expected
