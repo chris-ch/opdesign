@@ -8,10 +8,12 @@ import SpecHelper
 import Prelude (Maybe(..), IO, String, Bool(..), Int, Integer, Rational, Monad, Monoid, Ord, Num)
 import Prelude (fromInteger, mappend, read, zipWith, last, drop, print, scanl, maybe, return, not)
 import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=))
-import Control.Monad.State (State, evalState, get, put)
+import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
+--import qualified Control.Monad.Trans.State as S
+
 import Data.Void (Void)
-import Conduit (ConduitT, ResourceT)
-import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, mapMC, takeC, lastC)
+import Conduit (ConduitT, ResourceT, ConduitM)
+import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, mapMC, iterMC, foldMapMC, takeC, lastC, evalStateC)
 import Conduit (await, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, sinkList)
 import Conduit ((.|))
 
@@ -181,29 +183,6 @@ spec = describe "Testing signal processing operators" $ do
             res <- runConduit ( input .| integrate .| sinkList )
             res `shouldBe` expected
 
-    context "Game state" $
-        let
-            transform :: String -> State GameState Int
-            transform [] = do
-                (_, score) <- get
-                return score
-            
-            transform (x:xs) = do
-                (isGameOn, score) <- get
-                case x of
-                    'a' | isGameOn  -> put (isGameOn, score + 1)
-                    'b' | isGameOn  -> put (isGameOn, score - 1)
-                    'c'             -> put (not isGameOn, score)
-                    _               -> put (isGameOn, score)
-
-                transform xs
-                
-            expected = 6
-        in
-        it "shows result according to state" $ do
-            let final = evalState (transform "abcaaacbacabaaa") (False, 0)
-            final `shouldBe` expected
-
     context "Integrator as IIR filter y_1 = y_0 + 0.5 * (x_1 + x_0)" $
         let
             integrator :: [Rational] -> State (Rational, Rational) Rational
@@ -216,12 +195,52 @@ spec = describe "Testing signal processing operators" $ do
                 let y_1 = y_0 + (x_1 + x_0) / 2
                 put (y_1, x_1)
                 integrator xs
-                    
+                
             expected = 8.5
         in
         it "shows result according to state" $ do
             let final = evalState (integrator [1, 1, 1, 1, 1, 1, 1, 1, 1]) (0, 0)
             final `shouldBe` expected
-    
 
-type GameState = (Bool, Int)
+    context "Counter using State and Conduit" $
+        let
+            input :: (Monad m) => ConduitT () Int m ()
+            input = yieldMany [1, 1, 1, 1, 1, 1, 1, 1]
+
+            counterC = go
+                where
+                go = do
+                    x0 <-  await
+                    case x0 of
+                        Nothing -> return ()
+                        Just x -> do
+                            lift $ modify (+1)
+                            r <- lift get
+                            yield r
+                            go
+
+            expected = [1, 2, 3, 4, 5, 6, 7, 8]
+        in
+        it "shows result according to state" $ do
+            res <- (runConduit ( input .| evalStateC 0 counterC   .| sinkList ))
+            res `shouldBe` expected
+{-
+    context "Integrator as IIR filter y_1 = y_0 + 0.5 * (x_1 + x_0)" $
+        let
+            input :: (Monad m) => ConduitM () Rational m ()
+            input = yieldMany [1, 1, 1, 1, 1, 1, 1, 1]
+
+            integrator :: Rational -> State (Rational, Rational) Rational                    
+            integrator x_1 = do
+                (y_0, x_0) <- get
+                let y_1 = y_0 + (x_1 + x_0) / 2
+                put (y_1, x_1)
+                return y_1
+            
+            expected = [1, 1, 1, 1, 1, 1, 1, 1, 1]
+        in
+        it "shows result according to state" $ do
+            --let final = evalState (integrator [1, 1, 1, 1, 1, 1, 1, 1, 1]) (0, 0)
+            res <- evalState (runConduit ( input .| iterMC integrator .| sinkList ))
+            res `shouldBe` expected
+-}
