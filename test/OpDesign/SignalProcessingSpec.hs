@@ -218,19 +218,19 @@ spec = describe "Testing signal processing operators" $ do
                             yield r
                             counterC
 
-            integratorC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
+            integratorC :: (MonadState a m, Num a) => ConduitT a a m ()
             integratorC = do
-                    x0 <-  await
-                    case x0 of
+                    input <- await
+                    case input of
                         Nothing -> return ()
-                        Just x -> do
+                        Just x1 -> do
                             y0 <- lift get
-                            lift $ put (y0 + 1)
-                            r <- lift get
-                            yield r
+                            let y1 = y0 + x1
+                            lift $ put y1
+                            yield y1
                             integratorC
 
-            expected = [1, 2, 3, 4, 5, 6, 7, 8]
+            expected = [1, 2, 3, 4, 5, 6, 7, 9]
         in
         it "shows result according to state" $ do
             res <- (runConduit ( input .| evalStateC 0 integratorC .| sinkList ))
