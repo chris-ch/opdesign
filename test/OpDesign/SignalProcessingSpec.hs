@@ -218,6 +218,17 @@ spec = describe "Testing signal processing operators" $ do
                             yield r
                             counterC
 
+            expected = [1, 2, 3, 4, 5, 6, 7, 8]
+        in
+        it "shows result according to state" $ do
+            res <- (runConduit ( input .| evalStateC 0 counterC .| sinkList ))
+            res `shouldBe` expected
+
+    context "Integrator using State and Conduit" $
+        let
+            input :: (Monad m) => ConduitT () Int m ()
+            input = yieldMany [2, 2, 2, 1, 1, 1, -1, -1]
+
             integratorC :: (MonadState a m, Num a) => ConduitT a a m ()
             integratorC = do
                     input <- await
@@ -230,29 +241,8 @@ spec = describe "Testing signal processing operators" $ do
                             yield y1
                             integratorC
 
-            expected = [1, 2, 3, 4, 5, 6, 7, 9]
+            expected = [2, 4, 6, 7, 8, 9, 8, 7]
         in
         it "shows result according to state" $ do
             res <- (runConduit ( input .| evalStateC 0 integratorC .| sinkList ))
             res `shouldBe` expected
-
-{-
-    context "Integrator as IIR filter y_1 = y_0 + 0.5 * (x_1 + x_0)" $
-        let
-            input :: (Monad m) => ConduitM () Rational m ()
-            input = yieldMany [1, 1, 1, 1, 1, 1, 1, 1]
-
-            integrator :: Rational -> State (Rational, Rational) Rational                    
-            integrator x_1 = do
-                (y_0, x_0) <- get
-                let y_1 = y_0 + (x_1 + x_0) / 2
-                put (y_1, x_1)
-                return y_1
-            
-            expected = [1, 1, 1, 1, 1, 1, 1, 1, 1]
-        in
-        it "shows result according to state" $ do
-            --let final = evalState (integrator [1, 1, 1, 1, 1, 1, 1, 1, 1]) (0, 0)
-            res <- evalState (runConduit ( input .| iterMC integrator .| sinkList ))
-            res `shouldBe` expected
--}
