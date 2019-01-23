@@ -63,7 +63,6 @@ opMul input1 input2 = operator (*) input1 input2
 
 type IntegratorState = (Rational, Rational)
 
---integratorC :: (MonadState (a, a) m, Num a) => ConduitT a a m ()
 integratorC :: (MonadState IntegratorState m) => ConduitT Rational Rational m ()
 integratorC = do
         input <- await
@@ -78,3 +77,20 @@ integratorC = do
 
 tfIntegrate :: Rational -> Transfer Rational Rational
 tfIntegrate initial = evalStateC (initial, initial) integratorC
+
+type IIR_5_5_State = (Rational, Rational, Rational, Rational, Rational, Rational, Rational, Rational, Rational, Rational)
+
+filterIIRC :: (MonadState IIR_5_5_State m) => (Rational, Rational, Rational, Rational, Rational) -> (Rational, Rational, Rational, Rational, Rational) -> ConduitT Rational Rational m ()
+filterIIRC (a0, a1, a2, a3, a4) (b0, b1, b2, b3, b4) = do
+        input <- await
+        case input of
+            Nothing -> return ()
+            Just x -> do
+                (y0, y1, y2, y3, y4, x0, x1, x2, x3, x4) <- lift get
+                let y = a0 * y0 + a1 * y1 + a2 * y2 + a3 * y3 + a4 * y4 + b0 * x0 + b1 * x1 + b2 * x2 + b3 * x3 + b4 * x4
+                lift $ put (y, y0, y1, y2, y3, x, x0, x1, x2, x3)
+                yield y
+                filterIIRC (a0, a1, a2, a3, a4) (b0, b1, b2, b3, b4)
+
+tfIIR :: (Rational, Rational, Rational, Rational, Rational) -> (Rational, Rational, Rational, Rational, Rational) -> Rational -> Transfer Rational Rational
+tfIIR (a0, a1, a2, a3, a4) (b0, b1, b2, b3, b4) initial = evalStateC (initial, initial, initial, initial, initial, initial, initial, initial, initial, initial) $ filterIIRC (a0, a1, a2, a3, a4) (b0, b1, b2, b3, b4)
