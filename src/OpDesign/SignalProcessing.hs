@@ -10,7 +10,7 @@ import Prelude (IO, Int, Monad, Num, Double, Rational, Maybe(..), Fractional)
 import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin, return)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 import Conduit (ConduitT, Identity)
-import Conduit (yield, yieldMany, mapC, slidingWindowC, await)
+import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await)
 import Conduit ((.|))
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
@@ -75,3 +75,6 @@ integratorC = do
                 lift $ put (y1, x1)
                 yield y1
                 integratorC
+
+tfIntegrate :: Rational -> Transfer Rational Rational
+tfIntegrate initial = evalStateC (initial, initial) integratorC

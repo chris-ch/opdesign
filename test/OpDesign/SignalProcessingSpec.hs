@@ -24,7 +24,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, integratorC)
+import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -229,8 +229,8 @@ spec = describe "Testing signal processing operators" $ do
             input :: (Monad m) => ConduitT () Rational m ()
             input = yieldMany [2, 2, 2, 1, 1, 1, -1, -1]
 
-            expected = [1, 3, 5, 6.5, 7.5, 8.5, 8.5, 7.5]
+            expected = [1, 3, 5, 6.5, 7.5, 8.5, 8.5, 7.5 :: Rational]
         in
-        it "shows result according to state" $ do
-            res <- (runConduit ( input .| evalStateC (0, 0) integratorC .| sinkList ))
-            res `shouldBe` expected
+        it "shows result according to state" $
+            (runConduitPure ( input .| tfIntegrate 0 .| sinkList ))
+        `shouldBe` expected
