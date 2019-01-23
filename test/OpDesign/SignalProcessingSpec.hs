@@ -24,7 +24,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate)
+import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -196,10 +196,10 @@ spec = describe "Testing signal processing operators" $ do
                 put (y_1, x_1)
                 integrator xs
                 
-            expected = 8.5
+            expected = 7.5
         in
         it "shows result according to state" $ do
-            let final = evalState (integrator [1, 1, 1, 1, 1, 1, 1, 1, 1]) (0, 0)
+            let final = evalState (integrator [2, 2, 2, 1, 1, 1, -1, -1]) (0, 0)
             final `shouldBe` expected
 
     context "Counter using State and Conduit" $
@@ -233,4 +233,17 @@ spec = describe "Testing signal processing operators" $ do
         in
         it "shows result according to state" $
             (runConduitPure ( input .| tfIntegrate 0 .| sinkList ))
+        `shouldBe` expected
+
+    context "Integrator using IIR filter" $
+        let
+            input :: (Monad m) => ConduitT () Rational m ()
+            input = yieldMany [2, 2, 2, 1, 1, 1, -1, -1]
+
+            filter = tfIIR [0.5, 0.5] [1] ([0, 0], [1])
+
+            expected = [1, 3, 5, 6.5, 7.5, 8.5, 8.5, 7.5 :: Rational]
+        in
+        it "shows result according to state" $
+            (runConduitPure ( input .| filter .| sinkList ))
         `shouldBe` expected

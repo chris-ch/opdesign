@@ -7,7 +7,7 @@
 module OpDesign.SignalProcessing where
 
 import Prelude (IO, Int, Monad, Num, Double, Rational, Maybe(..), Fractional)
-import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin, return)
+import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin, return, init, sum, zipWith)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 import Conduit (ConduitT, Identity)
 import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await)
@@ -78,19 +78,25 @@ integratorC = do
 tfIntegrate :: Rational -> Transfer Rational Rational
 tfIntegrate initial = evalStateC (initial, initial) integratorC
 
-type IIR_5_5_State = (Rational, Rational, Rational, Rational, Rational, Rational, Rational, Rational, Rational, Rational)
+type IIR_Inputs = [Rational]
+type IIR_Outputs = [Rational]
+type IIR_State = (IIR_Inputs, IIR_Outputs)
+type IIR_CoefficientsInputs = [Rational]
+type IIR_CoefficientsOutputs = [Rational]
 
-filterIIRC :: (MonadState IIR_5_5_State m) => (Rational, Rational, Rational, Rational, Rational) -> (Rational, Rational, Rational, Rational, Rational) -> ConduitT Rational Rational m ()
-filterIIRC (a0, a1, a2, a3, a4) (b0, b1, b2, b3, b4) = do
+filterIIRC :: (MonadState IIR_State m) => IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational m ()
+filterIIRC coeffsIn coeffsOut = do
         input <- await
         case input of
             Nothing -> return ()
             Just x -> do
-                (y0, y1, y2, y3, y4, x0, x1, x2, x3, x4) <- lift get
-                let y = a0 * y0 + a1 * y1 + a2 * y2 + a3 * y3 + a4 * y4 + b0 * x0 + b1 * x1 + b2 * x2 + b3 * x3 + b4 * x4
-                lift $ put (y, y0, y1, y2, y3, x, x0, x1, x2, x3)
+                (prevInputs, prevOutputs) <- lift get
+                let y = sum (zipWith (*) prevInputs coeffsIn) + sum (zipWith (*) prevOutputs coeffsOut) 
+                let inputs = x : remainder where remainder = init prevInputs
+                let outputs = y : remainder where remainder = init prevOutputs
+                lift $ put (inputs, outputs)
                 yield y
-                filterIIRC (a0, a1, a2, a3, a4) (b0, b1, b2, b3, b4)
+                filterIIRC coeffsIn coeffsOut
 
-tfIIR :: (Rational, Rational, Rational, Rational, Rational) -> (Rational, Rational, Rational, Rational, Rational) -> Rational -> Transfer Rational Rational
-tfIIR (a0, a1, a2, a3, a4) (b0, b1, b2, b3, b4) initial = evalStateC (initial, initial, initial, initial, initial, initial, initial, initial, initial, initial) $ filterIIRC (a0, a1, a2, a3, a4) (b0, b1, b2, b3, b4)
+tfIIR :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> IIR_State -> Transfer Rational Rational
+tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initialOut) $ filterIIRC coeffsIn coeffsOut
