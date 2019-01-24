@@ -240,10 +240,23 @@ spec = describe "Testing signal processing operators" $ do
             input :: (Monad m) => ConduitT () Rational m ()
             input = yieldMany [2, 2, 2, 1, 1, 1, -1, -1]
 
-            filter = tfIIR [0.5, 0.5] [1] ([0, 0], [1])
+            filterIIR = tfIIR [1] [1] ([0], [0])
+
+            expected = [2, 4, 6, 7, 8, 9, 8, 7 :: Rational]
+        in
+        it "shows result according to state" $
+            (runConduitPure ( input .| filterIIR .| sinkList ))
+        `shouldBe` expected
+
+    context "Trapezoidal integrator using IIR filter" $
+        let
+            input :: (Monad m) => ConduitT () Rational m ()
+            input = yieldMany [2, 2, 2, 1, 1, 1, -1, -1]
+
+            filterIIR = tfIIR [0.5, 0.5] [1] ([0, 0], [0])
 
             expected = [1, 3, 5, 6.5, 7.5, 8.5, 8.5, 7.5 :: Rational]
         in
         it "shows result according to state" $
-            (runConduitPure ( input .| filter .| sinkList ))
+            (runConduitPure ( input .| filterIIR .| sinkList ))
         `shouldBe` expected

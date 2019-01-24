@@ -91,8 +91,8 @@ filterIIRC coeffsIn coeffsOut = do
             Nothing -> return ()
             Just x -> do
                 (prevInputs, prevOutputs) <- lift get
-                let y = sum (zipWith (*) prevInputs coeffsIn) + sum (zipWith (*) prevOutputs coeffsOut) 
                 let inputs = x : remainder where remainder = init prevInputs
+                let y = sum (zipWith (*) inputs coeffsIn) + sum (zipWith (*) prevOutputs coeffsOut)
                 let outputs = y : remainder where remainder = init prevOutputs
                 lift $ put (inputs, outputs)
                 yield y
