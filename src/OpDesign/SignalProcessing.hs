@@ -84,7 +84,7 @@ type IIR_State = (IIR_Inputs, IIR_Outputs)
 type IIR_CoefficientsInputs = [Rational]
 type IIR_CoefficientsOutputs = [Rational]
 
-filterIIRC :: (MonadState IIR_State m) => IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> Transfer Rational Rational
+filterIIRC :: (MonadState IIR_State m) => IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational m ()
 filterIIRC coeffsIn coeffsOut = do
         input <- await
         case input of
