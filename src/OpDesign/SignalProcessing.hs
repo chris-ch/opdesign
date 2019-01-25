@@ -12,7 +12,9 @@ import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 import Conduit (ConduitT, Identity)
 import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await)
 import Conduit ((.|))
-import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
+import System.Random (getStdGen)
+import Control.Monad.State (MonadState, MonadIO, State, evalState, get, put, modify, lift)
+import Control.Monad.Trans.State.Strict (StateT)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
 type Signal a = ConduitT () a Identity ()
@@ -84,13 +86,13 @@ type IIR_State = (IIR_Inputs, IIR_Outputs)
 type IIR_CoefficientsInputs = [Rational]
 type IIR_CoefficientsOutputs = [Rational]
 
-filterIIRC :: (MonadState IIR_State m) => IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational m ()
+filterIIRC :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational (StateT IIR_State Identity) ()
 filterIIRC coeffsIn coeffsOut = do
-        input <- await
+        input <- await :: (MonadState IIR_State m) => ConduitT Rational Rational m (Maybe Rational)
         case input of
             Nothing -> return ()
             Just x -> do
-                (prevInputs, prevOutputs) <- lift get
+                (prevInputs, prevOutputs) <- lift get :: (MonadState IIR_State m) => ConduitT Rational Rational m IIR_State
                 let inputs = x : remainder where remainder = init prevInputs
                 let y = sum (zipWith (*) inputs coeffsIn) + sum (zipWith (*) prevOutputs coeffsOut)
                 let outputs = y : remainder where remainder = init prevOutputs
@@ -100,3 +102,17 @@ filterIIRC coeffsIn coeffsOut = do
 
 tfIIR :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> IIR_State -> Transfer Rational Rational
 tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initialOut) $ filterIIRC coeffsIn coeffsOut
+
+
+-- random number generator
+{--
+genRandom :: (MonadIO m) => ConduitT Rational Rational m ()
+genRandom = do
+    input <- await
+    case input of
+        Nothing -> return ()
+        Just x -> do
+            g <- getStdGen
+            yield g
+            genRandom
+--}
