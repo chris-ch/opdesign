@@ -88,7 +88,7 @@ type IIR_CoefficientsOutputs = [Rational]
 
 filterIIRC :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational (StateT IIR_State Identity) ()
 filterIIRC coeffsIn coeffsOut = do
-        input <- await :: (MonadState IIR_State m) => ConduitT Rational Rational m (Maybe Rational)
+        input <- await :: ConduitT Rational Rational Identity (Maybe Rational)
         case input of
             Nothing -> return ()
             Just x -> do
