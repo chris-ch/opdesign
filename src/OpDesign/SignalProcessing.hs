@@ -86,13 +86,13 @@ type IIR_State = (IIR_Inputs, IIR_Outputs)
 type IIR_CoefficientsInputs = [Rational]
 type IIR_CoefficientsOutputs = [Rational]
 
-filterIIRC :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational (StateT IIR_State Identity) ()
+filterIIRC :: (Monad m) => IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational (StateT IIR_State m) ()
 filterIIRC coeffsIn coeffsOut = do
-        input <- await :: ConduitT Rational Rational Identity (Maybe Rational)
+        input <- await :: (Monad m) => ConduitT Rational Rational (StateT IIR_State m) (Maybe Rational)
         case input of
             Nothing -> return ()
             Just x -> do
-                (prevInputs, prevOutputs) <- lift get :: (MonadState IIR_State m) => ConduitT Rational Rational m IIR_State
+                (prevInputs, prevOutputs) <- lift get :: (Monad m) => ConduitT Rational Rational (StateT IIR_State m) IIR_State
                 let inputs = x : remainder where remainder = init prevInputs
                 let y = sum (zipWith (*) inputs coeffsIn) + sum (zipWith (*) prevOutputs coeffsOut)
                 let outputs = y : remainder where remainder = init prevOutputs
