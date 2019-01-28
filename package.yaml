@@ -35,6 +35,7 @@ dependencies:
 - mtl >= 2.2.2
 - random >= 1.1
 - transformers
+- transformers-base
 
 library:
   source-dirs: src

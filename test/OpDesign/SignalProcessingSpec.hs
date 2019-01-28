@@ -13,7 +13,7 @@ import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift
 
 import Data.Void (Void)
 import Conduit (ConduitT, ResourceT, ConduitM)
-import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, mapMC, iterMC, foldMapMC, takeC, lastC, evalStateC)
+import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, mapMC, iterMC, foldMapMC, takeC, lastC, evalStateC, runResourceT)
 import Conduit (await, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, sinkList)
 import Conduit ((.|))
 
@@ -24,7 +24,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR)
+import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, simpleConduit, sourceStdGen)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -260,3 +260,11 @@ spec = describe "Testing signal processing operators" $ do
         it "shows result according to state" $
             (runConduitPure ( input .| filterIIR .| sinkList ))
         `shouldBe` expected
+
+    context "yielding random sequence" $
+        let
+            expected = [44,46,49,45,42,41,40,48,42,46]
+        in
+        it "should generate predicted int sequence" $ do
+            x <- (runConduit (sourceStdGen .| simpleConduit .| takeC 10 .| sinkList))
+            x `shouldBe` expected
