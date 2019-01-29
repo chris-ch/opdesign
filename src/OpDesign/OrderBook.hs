@@ -17,7 +17,10 @@ parseTickType "BEST_ASK" = BestAsk
 newtype Price = Price Rational deriving (Eq, Ord)
 instance Show Price where
     show (Price price) = (showFFloat (Just 6) $ fromRat price) ""
-    
+
+fromPrice :: Price -> Rational
+fromPrice (Price value) = value
+
 newtype Volume = Volume Int deriving (Eq, Ord)
 instance Show Volume where
     show (Volume volume) = show volume
@@ -54,7 +57,7 @@ data OrderBook = OrderBook {
     askVolume :: Maybe Volume} deriving (Show, Eq)
 
 isValid :: OrderBook -> Bool
-isValid OrderBook{date=_, bidVolume=Just _, bidPrice=Just _, askPrice=Just _, askVolume=Just _ } = True
+isValid OrderBook {date=_, bidVolume=Just _, bidPrice=Just _, askPrice=Just _, askVolume=Just _ } = True
 isValid _ = False
 
 emptyOrderBook :: UTCTime -> OrderBook

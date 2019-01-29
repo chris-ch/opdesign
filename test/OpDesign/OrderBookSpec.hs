@@ -7,6 +7,7 @@ import SpecHelper
 
 import Prelude (String, Int, Integer, Monad, Monoid, Ord, Num, Bool(..))
 import Prelude (fromInteger, mappend, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>))
+import Data.Ratio ((%))
 import Data.Void (Void)
 import Conduit (ConduitT, ResourceT)
 import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, decodeUtf8C, sinkList)
@@ -19,7 +20,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.OrderBookStream (orderBookStream, scanl1C)
+import OpDesign.OrderBookStream (orderBookStream, scanl1C, trfMidPrice)
 
 testInputData :: [String]
 testInputData = lines "\
@@ -75,3 +76,8 @@ spec = describe "Testing reading ticks using pipes" $ do
         it "should produce a stream of orderbooks" $
             runConduitPure ( yieldMany testInputData .| orderBookStream .| mapC isValid .| sinkList)
         `shouldBe` [False,False,True,True,True,True,True,True,True,True,True]
+
+    context "midprices" $
+        it "should produce a stream of orderbooks" $
+            runConduitPure ( yieldMany testInputData .| orderBookStream .| trfMidPrice .| sinkList)
+        `shouldBe` [Nothing,Nothing,Just 8939,Just (17881 % 2),Just (35767 % 4),Just 8945,Just (17895 % 2),Just (17883 % 2),Just (17895 % 2),Just 8945,Just (35777 % 4)]
