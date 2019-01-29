@@ -11,11 +11,9 @@ import Prelude (IO, Int, Monad, Num, Double, Rational, Maybe(..), Fractional)
 import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin, return, init, sum, zipWith, take, fst)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>), (.), (>>=))
 
-import Conduit (ConduitT, Identity, PrimMonad, PrimState, ResourceT, Conduit)
+import Conduit (ConduitT, Identity)
 import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, repeatMC, replicateMC, runConduit)
 import Conduit ((.|))
-import Control.Monad.Base (MonadBase, liftBase)
-import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 import Control.Monad.Trans.State.Strict (StateT)
 
@@ -110,5 +108,5 @@ tfIIR :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> IIR_State -> Trans
 tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initialOut) $ filterIIRC coeffsIn coeffsOut
 
 -- random number generator
-genRandom :: (Monad m) => ConduitT () Int m ()
-genRandom = yieldMany (randomRs (40, 50) (mkStdGen 2))
+genRandom :: (Monad m) => (Int, Int) -> Int -> ConduitT () Int m ()
+genRandom (bottom, top) seed = yieldMany (randomRs (bottom, top) (mkStdGen seed))

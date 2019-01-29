@@ -9,7 +9,6 @@ import Prelude (Maybe(..), IO, String, Bool(..), Int, Integer, Rational, Monad, 
 import Prelude (fromInteger, mappend, read, zipWith, last, drop, print, scanl, maybe, return, not)
 import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=))
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
---import qualified Control.Monad.Trans.State as S
 
 import Data.Void (Void)
 import Conduit (ConduitT, ResourceT, ConduitM)
@@ -266,5 +265,5 @@ spec = describe "Testing signal processing operators" $ do
             expected = [46,50,42,42,40,42,47,47,48,41]
         in
         it "should generate predicted int sequence" $ do
-            x <- (runConduit (genRandom .| takeC 10 .| sinkList))
+            x <- (runConduit (genRandom (40, 50) 2 .| takeC 10 .| sinkList))
             x `shouldBe` expected
