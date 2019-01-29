@@ -263,7 +263,7 @@ spec = describe "Testing signal processing operators" $ do
 
     context "yielding random sequence" $
         let
-            expected = [44,46,49,45,42,41,40,48,42,46]
+            expected = [46,40,47,43,42,46,50,45,43,42]
         in
         it "should generate predicted int sequence" $ do
             x <- (runConduit (genRandom .| takeC 10 .| sinkList))

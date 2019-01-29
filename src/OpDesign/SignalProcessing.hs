@@ -14,13 +14,12 @@ import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>), (.), (>>=))
 import Conduit (ConduitT, Identity, PrimMonad, PrimState, ResourceT, Conduit)
 import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, repeatMC, replicateMC, runConduit)
 import Conduit ((.|))
-
 import Control.Monad.Base (MonadBase, liftBase)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 import Control.Monad.Trans.State.Strict (StateT)
 
-import System.Random (StdGen(..), split, newStdGen, randomR, getStdGen)
+import System.Random (StdGen(..), split, newStdGen, randomR, getStdGen, mkStdGen, setStdGen)
 
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
@@ -112,17 +111,22 @@ tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initia
 
 
 -- random number generator
-genRandomGenerator :: (MonadIO m) => ConduitT () StdGen m ()
-genRandomGenerator = do
+genRandomGenerator :: (MonadIO m) => Int -> ConduitT () StdGen m ()
+genRandomGenerator seed = do
+    liftIO $ setStdGen (mkStdGen seed)
     gen0 <- liftIO getStdGen
     loop gen0
-    where loop gen = do
-            let gen' = fst (split gen)
+    where
+        loop ::  (MonadIO m) => StdGen -> ConduitT () StdGen m ()
+        loop gen = do
             yield gen
             loop gen'
+            where
+                gen' :: StdGen
+                gen' = fst (split gen)
 
 genRandom :: (MonadIO m) => ConduitT () Int m ()
-genRandom = (genRandomGenerator .| mapC process)
+genRandom = (genRandomGenerator 2 .| mapC process)
     where
         process :: StdGen -> Int
         process gen = fst $ randomR (40, 50) gen
