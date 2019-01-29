@@ -20,7 +20,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 import Control.Monad.Trans.State.Strict (StateT)
 
-import System.Random (StdGen(..), split, newStdGen, randomR)
+import System.Random (StdGen(..), split, newStdGen, randomR, getStdGen)
 
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
@@ -112,17 +112,17 @@ tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initia
 
 
 -- random number generator
-sourceStdGen :: (MonadIO m) => ConduitT () StdGen m ()
-sourceStdGen = do
-    gen <- liftIO newStdGen
-    loop gen
-    where loop genInput = do
-            let gen' = fst (split genInput)
-            yield genInput
+genRandomGenerator :: (MonadIO m) => ConduitT () StdGen m ()
+genRandomGenerator = do
+    gen0 <- liftIO getStdGen
+    loop gen0
+    where loop gen = do
+            let gen' = fst (split gen)
+            yield gen
             loop gen'
 
 genRandom :: (MonadIO m) => ConduitT () Int m ()
-genRandom = (sourceStdGen .| mapC process)
+genRandom = (genRandomGenerator .| mapC process)
     where
         process :: StdGen -> Int
         process gen = fst $ randomR (40, 50) gen
