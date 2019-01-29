@@ -53,6 +53,10 @@ data OrderBook = OrderBook {
     askPrice :: Maybe Price,
     askVolume :: Maybe Volume} deriving (Show, Eq)
 
+isValid :: OrderBook -> Bool
+isValid OrderBook{date=_, bidVolume=Just _, bidPrice=Just _, askPrice=Just _, askVolume=Just _ } = True
+isValid _ = False
+
 emptyOrderBook :: UTCTime -> OrderBook
 emptyOrderBook timestamp = OrderBook {
     date = timestamp,

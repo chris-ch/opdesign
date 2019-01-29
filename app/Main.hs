@@ -35,7 +35,7 @@ outputStream :: ConduitT ByteString Void (ResourceT IO) ()
 outputStream = tickStream .| orderBookStream .| Cmb.print
           
 -----------------------------------------------------------
-     
+
 main :: IO ()
 main = do
     parsedArguments <- cmdArgsRun opdesign

@@ -14,7 +14,7 @@ import Conduit ((.|))
 import Conduit (ConduitT, ResourceT, await)
 import Conduit (mapC, decodeUtf8C, scanlC)
 
-import OpDesign.OrderBook (OrderBook, updateOrderBook, fromTickData, tickFields)
+import OpDesign.OrderBook (OrderBook(..), updateOrderBook, fromTickData, tickFields)
 
 scanl1C :: Monad m => (a -> a -> a) -> ConduitT a a m ()
 scanl1C f = await >>= maybe (return ()) (scanlC f)
@@ -31,3 +31,11 @@ tickStream = decodeUtf8C
 
 orderBookStream :: Monad m => ConduitT String OrderBook m ()
 orderBookStream = mapC tickFields .| mapC fromTickData .| scanl1C updateOrderBook
+
+{--
+trfMidPrice :: Monad m => ConduitT OrderBook Rational m ()
+trfMidPrice = mapC midPrice
+    where
+        midPrice :: OrderBook -> Maybe Rational
+        midPrice OrderBook() = (orderbook bidPrice + orderbook askPrice) / 2
+--}
