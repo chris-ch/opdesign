@@ -24,7 +24,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, simpleConduit, sourceStdGen)
+import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, genRandom)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -266,5 +266,5 @@ spec = describe "Testing signal processing operators" $ do
             expected = [44,46,49,45,42,41,40,48,42,46]
         in
         it "should generate predicted int sequence" $ do
-            x <- (runConduit (sourceStdGen .| simpleConduit .| takeC 10 .| sinkList))
+            x <- (runConduit (genRandom .| takeC 10 .| sinkList))
             x `shouldBe` expected

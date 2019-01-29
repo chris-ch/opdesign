@@ -10,18 +10,19 @@ module OpDesign.SignalProcessing where
 import Prelude (IO, Int, Monad, Num, Double, Rational, Maybe(..), Fractional)
 import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin, return, init, sum, zipWith, take, fst)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>), (.), (>>=))
+
 import Conduit (ConduitT, Identity, PrimMonad, PrimState, ResourceT, Conduit)
-import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, repeatMC, replicateMC, liftIO, runConduit)
+import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, repeatMC, replicateMC, runConduit)
 import Conduit ((.|))
 
 import Control.Monad.Base (MonadBase, liftBase)
-import Control.Monad.State (MonadState, MonadIO, State, evalState, get, put, modify, lift)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 import Control.Monad.Trans.State.Strict (StateT)
 
 import System.Random (StdGen(..), split, newStdGen, randomR)
 
 import qualified Conduit as DC (ZipSource(..), getZipSource)
-import qualified Data.ByteString as BS (ByteString, pack)
 
 type Signal a = ConduitT () a Identity ()
 type Transfer a b = ConduitT a b Identity ()
@@ -111,43 +112,17 @@ tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initia
 
 
 -- random number generator
-{--
-genRandomIn :: (Monad m) => ConduitT Rational (IO StdGen) m ()
-genRandomIn = do
-    input <- await
-    case input of
-        Nothing -> return ()
-        Just x -> do
-            let g = getStdGen
-            yield g
-            genRandomIn
-
-genRandom :: ConduitT () Int (IO) ()
-genRandom = yieldMany $ ((randoms getStdGen) :: [Int])
-
-
---x = take 10 (randoms getStdGen :: [Double])
-zeroToTen :: IO Int
-zeroToTen = do
-    g <- getStdGen
-    x <- (randoms g :: [Int])
-    return x
---}
---genRandom :: ConduitT () [Int] IO ()
---genRandom = repeatMC zeroToTen
--- generate a infinite source of random number seeds
---sourceStdGen :: MonadIO m => ConduitT () StdGen m ()
 sourceStdGen :: (MonadIO m) => ConduitT () StdGen m ()
 sourceStdGen = do
-    g <- liftIO newStdGen
-    loop g
-    where loop gin = do
-            let g' = fst (split gin)
-            yield gin
-            loop g'
+    gen <- liftIO newStdGen
+    loop gen
+    where loop genInput = do
+            let gen' = fst (split genInput)
+            yield genInput
+            loop gen'
 
-simpleConduit :: (Monad m) => ConduitT StdGen Int m ()
-simpleConduit = mapC process
-
-process :: StdGen -> Int
-process g = fst $ randomR (40,50) g
+genRandom :: (MonadIO m) => ConduitT () Int m ()
+genRandom = (sourceStdGen .| mapC process)
+    where
+        process :: StdGen -> Int
+        process gen = fst $ randomR (40, 50) gen
