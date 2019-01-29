@@ -19,7 +19,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 import Control.Monad.Trans.State.Strict (StateT)
 
-import System.Random (StdGen(..), split, newStdGen, randomR, getStdGen, mkStdGen, setStdGen)
+import System.Random (StdGen(..), split, newStdGen, randomR, randomRs, getStdGen, mkStdGen, setStdGen)
 
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
@@ -109,24 +109,6 @@ filterIIRC coeffsIn coeffsOut = do
 tfIIR :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> IIR_State -> Transfer Rational Rational
 tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initialOut) $ filterIIRC coeffsIn coeffsOut
 
-
 -- random number generator
-genRandomGenerator :: (MonadIO m) => Int -> ConduitT () StdGen m ()
-genRandomGenerator seed = do
-    liftIO $ setStdGen (mkStdGen seed)
-    gen0 <- liftIO getStdGen
-    loop gen0
-    where
-        loop ::  (MonadIO m) => StdGen -> ConduitT () StdGen m ()
-        loop gen = do
-            yield gen
-            loop gen'
-            where
-                gen' :: StdGen
-                gen' = fst (split gen)
-
-genRandom :: (MonadIO m) => ConduitT () Int m ()
-genRandom = (genRandomGenerator 2 .| mapC process)
-    where
-        process :: StdGen -> Int
-        process gen = fst $ randomR (40, 50) gen
+genRandom :: (Monad m) => ConduitT () Int m ()
+genRandom = yieldMany (randomRs (40, 50) (mkStdGen 2))
