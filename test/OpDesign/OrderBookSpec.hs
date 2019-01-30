@@ -9,6 +9,7 @@ import Prelude (String, Int, Integer, Monad, Monoid, Ord, Num, Bool(..))
 import Prelude (fromInteger, mappend, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>))
 import Data.Ratio ((%))
 import Data.Void (Void)
+import Data.Time (DiffTime)
 import Conduit (ConduitT, ResourceT)
 import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, decodeUtf8C, sinkList)
 import Conduit ((.|))
@@ -20,7 +21,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.OrderBookStream (orderBookStream, scanl1C, trfMidPrice)
+import OpDesign.OrderBookStream (orderBookStream, scanl1C, trfMidPrice, trfSample, plusOneMin)
 
 testInputData :: [String]
 testInputData = lines "\
@@ -56,7 +57,7 @@ spec = describe "Testing reading ticks using pipes" $ do
         `shouldBe` [1, 3, 6, 10, 15, 21, 28, 36, 45, 55]
 
     context "inline test data" $
-        it "should produce a stream of orderbooks" $
+        it "should produce a list of orderbooks" $
             runConduitPure ( yieldMany testInputData .| orderBookStream .| sinkList)
         `shouldBe` [
             OrderBook {date = (read "2014-10-28 06:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
@@ -73,11 +74,26 @@ spec = describe "Testing reading ticks using pipes" $ do
         ]
  
     context "checking valid orderbooks" $
-        it "should produce a stream of orderbooks" $
+        it "should produce a list of booleans" $
             runConduitPure ( yieldMany testInputData .| orderBookStream .| mapC isValid .| sinkList)
         `shouldBe` [False,False,True,True,True,True,True,True,True,True,True]
 
     context "midprices" $
-        it "should produce a stream of orderbooks" $
+        it "should produce a list of mid prices" $
             runConduitPure ( yieldMany testInputData .| orderBookStream .| trfMidPrice .| sinkList)
         `shouldBe` [Nothing,Nothing,Just 8939,Just (17881 % 2),Just (35767 % 4),Just 8945,Just (17895 % 2),Just (17883 % 2),Just (17895 % 2),Just 8945,Just (35777 % 4)]
+
+    context "second sampling" $
+        it "should produce a list of minute sampled orderbooks" $
+            runConduitPure ( yieldMany testInputData .| orderBookStream .| trfSample .| sinkList)
+        `shouldBe` [
+            OrderBook {date = (read "2014-10-28 06:51:00" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
+            OrderBook {date = (read "2014-10-28 06:52:00" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
+            OrderBook {date = (read "2014-10-28 06:53:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8945.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
+            OrderBook {date = (read "2014-10-28 06:54:00" :: UTCTime), bidVolume = Just $ Volume 8, bidPrice = Just $ Price 8938.5, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5}
+        ]
+ 
+    context "minute sampling" $
+        it "should return next round minute" $ 
+            plusOneMin (read "2014-10-28 06:50:14" :: UTCTime)
+        `shouldBe` (6 * 3600 + 51 * 60 +14 :: DiffTime)
