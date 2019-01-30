@@ -9,7 +9,7 @@ import Data.List (dropWhileEnd)
 import Data.Text (pack, unpack)
 import Data.ByteString (ByteString)
 import Data.Time (UTCTime(..), DiffTime, addUTCTime, secondsToDiffTime)
-import Data.Time.LocalTime (TimeOfDay(..), todHour, todMin, todSec, timeToTimeOfDay)
+import Data.Time.LocalTime (TimeOfDay(..), todHour, todMin, todSec, timeToTimeOfDay, timeOfDayToTime)
 import Data.Time.Calendar (Day, fromGregorian, toGregorian)
 import Conduit ((.|))
 import Conduit (ConduitT, ResourceT, await)
@@ -59,7 +59,8 @@ mapMinutes = mapC $ \orderBook -> (orderBook, Just (extractTime (date orderBook)
 
 {--
 ceilingMinute :: UTCTime -> UTCTime
-ceilingMinute (UTCTime day diffTime) = UTCTime (day) (secondsToDiffTime seconds)
+ceilingMinute (UTCTime day diffTime) = UTCTime (day) (plusOneMin seconds)
+
     where
         hours :: Int
         hours = todHour (timeToTimeOfDay plusOneMin)
@@ -74,5 +75,12 @@ ceilingMinute (UTCTime day diffTime) = UTCTime (day) (secondsToDiffTime seconds)
         plusOneMin = utctDayTime (addUTCTime 60 diffTime)
 --}
 
-plusOneMin :: UTCTime -> DiffTime
-plusOneMin d = utctDayTime (addUTCTime 60 d)
+plusOneMin :: UTCTime -> UTCTime
+plusOneMin = addUTCTime 60
+
+ceilingMinute :: UTCTime -> UTCTime
+ceilingMinute time = UTCTime (utctDay time') (timeOfDayToTime (TimeOfDay hour minute 0))
+    where
+        time' :: UTCTime
+        time' = plusOneMin time
+        (TimeOfDay hour minute second) = timeToTimeOfDay (utctDayTime time')

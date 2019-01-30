@@ -6,7 +6,7 @@ module OpDesign.OrderBookSpec where
 import SpecHelper
 
 import Prelude (String, Int, Integer, Monad, Monoid, Ord, Num, Bool(..))
-import Prelude (fromInteger, mappend, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>))
+import Prelude (fromInteger, mappend, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>), (.))
 import Data.Ratio ((%))
 import Data.Void (Void)
 import Data.Time (DiffTime)
@@ -21,7 +21,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.OrderBookStream (orderBookStream, scanl1C, trfMidPrice, trfSample, plusOneMin)
+import OpDesign.OrderBookStream (orderBookStream, scanl1C, trfMidPrice, trfSample, ceilingMinute)
 
 testInputData :: [String]
 testInputData = lines "\
@@ -95,5 +95,10 @@ spec = describe "Testing reading ticks using pipes" $ do
  
     context "minute sampling" $
         it "should return next round minute" $ 
-            plusOneMin (read "2014-10-28 06:50:14" :: UTCTime)
-        `shouldBe` (6 * 3600 + 51 * 60 +14 :: DiffTime)
+            ceilingMinute (read "2014-10-28 06:50:14" :: UTCTime)
+        `shouldBe` (read "2014-10-28 06:51:00" :: UTCTime)
+
+    context "minute sampling" $
+        it "should return next round minute" $ 
+            ceilingMinute (read "2014-10-28 23:59:14" :: UTCTime)
+        `shouldBe` (read "2014-10-29 00:00:00" :: UTCTime)
