@@ -103,15 +103,3 @@ spec = describe "Testing reading ticks using pipes" $ do
         it "should return next round minute" $ 
             ceilingMinute (read "2014-10-28 23:59:14" :: UTCTime)
         `shouldBe` (read "2014-10-29 00:00:00" :: UTCTime)
-
-    context "timezone conversions" $
-        it "should return next round minute" $ 
-            asUTC tzEST "2014-10-28 13:12:34"
-        `shouldBe` (read "2014-10-28 18:12:34" :: UTCTime)
-
-    context "timezone conversions" $
-        it "should return next round minute" $ 
-            asUTC tzEST "2014-10-28 23:12:34"
-        `shouldBe` (read "2014-10-29 04:12:34" :: UTCTime)
-
-    
