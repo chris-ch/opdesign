@@ -3,7 +3,8 @@
 
 module OpDesign.OrderBook where
 
-import Data.Time (UTCTime)
+import Data.Time (UTCTime, TimeZone)
+import Data.Timezones.TZ (asUTC)
 import Numeric (readFloat, readSigned, fromRat, showFFloat)
 import Data.Text (pack, unpack, splitOn)
 
@@ -34,8 +35,8 @@ data TickData = TickData {
     flag :: String
     } deriving (Show)
 
-tickFields :: String -> TickData
-tickFields line = TickData {
+tickFields :: TimeZone -> String -> TickData
+tickFields tz line = TickData {
     tickDate = fieldDate,
     tickType = fieldTickType,
     price = fieldPrice,
@@ -43,7 +44,7 @@ tickFields line = TickData {
     flag = fieldFlag
     } where
         fields = map unpack . splitOn "," $ pack line
-        fieldDate = (read $ fields!!0)::UTCTime
+        fieldDate = asUTC tz (fields!!0)
         fieldTickType = parseTickType $ fields!!1
         fieldPrice = Price $ fst . head $ readSigned readFloat $ fields!!2
         fieldVolume = Volume $ truncate (read $ fields!!3 :: Float)

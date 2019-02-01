@@ -17,6 +17,7 @@ import Conduit ((.|))
 import Data.List (sum)
 import Text.Show (show)
 import Data.Time (UTCTime)
+import Data.Timezones.TZ (asUTC, tzEST, tzUTC)
 import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM) 
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
@@ -58,7 +59,7 @@ spec = describe "Testing reading ticks using pipes" $ do
 
     context "inline test data" $
         it "should produce a list of orderbooks" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream .| sinkList)
+            runConduitPure ( yieldMany testInputData .| orderBookStream tzUTC .| sinkList)
         `shouldBe` [
             OrderBook {date = (read "2014-10-28 06:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
             OrderBook {date = (read "2014-10-28 06:50:46" :: UTCTime), bidVolume = Just $ Volume 5, bidPrice = Just $ Price 8937.0, askPrice = Nothing, askVolume = Nothing},
@@ -75,22 +76,22 @@ spec = describe "Testing reading ticks using pipes" $ do
  
     context "checking valid orderbooks" $
         it "should produce a list of booleans" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream .| mapC isValid .| sinkList)
+            runConduitPure ( yieldMany testInputData .| orderBookStream tzUTC .| mapC isValid .| sinkList)
         `shouldBe` [False,False,True,True,True,True,True,True,True,True,True]
 
     context "midprices" $
         it "should produce a list of mid prices" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream .| trfMidPrice .| sinkList)
+            runConduitPure ( yieldMany testInputData .| orderBookStream tzUTC .| trfMidPrice .| sinkList)
         `shouldBe` [Nothing,Nothing,Just 8939,Just (17881 % 2),Just (35767 % 4),Just 8945,Just (17895 % 2),Just (17883 % 2),Just (17895 % 2),Just 8945,Just (35777 % 4)]
 
     context "second sampling" $
         it "should produce a list of minute sampled orderbooks" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream .| trfSample .| sinkList)
+            runConduitPure ( yieldMany testInputData .| orderBookStream tzEST .| trfSample .| sinkList)
         `shouldBe` [
-            OrderBook {date = (read "2014-10-28 06:51:00" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
-            OrderBook {date = (read "2014-10-28 06:52:00" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
-            OrderBook {date = (read "2014-10-28 06:53:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8945.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
-            OrderBook {date = (read "2014-10-28 06:54:00" :: UTCTime), bidVolume = Just $ Volume 8, bidPrice = Just $ Price 8938.5, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5}
+            OrderBook {date = (read "2014-10-28 11:51:00" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
+            OrderBook {date = (read "2014-10-28 11:52:00" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
+            OrderBook {date = (read "2014-10-28 11:53:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8945.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
+            OrderBook {date = (read "2014-10-28 11:54:00" :: UTCTime), bidVolume = Just $ Volume 8, bidPrice = Just $ Price 8938.5, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5}
         ]
  
     context "minute sampling" $
@@ -102,3 +103,15 @@ spec = describe "Testing reading ticks using pipes" $ do
         it "should return next round minute" $ 
             ceilingMinute (read "2014-10-28 23:59:14" :: UTCTime)
         `shouldBe` (read "2014-10-29 00:00:00" :: UTCTime)
+
+    context "timezone conversions" $
+        it "should return next round minute" $ 
+            asUTC tzEST "2014-10-28 13:12:34"
+        `shouldBe` (read "2014-10-28 18:12:34" :: UTCTime)
+
+    context "timezone conversions" $
+        it "should return next round minute" $ 
+            asUTC tzEST "2014-10-28 23:12:34"
+        `shouldBe` (read "2014-10-29 04:12:34" :: UTCTime)
+
+    
