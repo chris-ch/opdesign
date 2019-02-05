@@ -1,5 +1,9 @@
 module OpDesign.TradingStrategySpec where
 
+import Prelude (String, Monad, Maybe(..))
+import Prelude (read, lines, map)
+import Prelude (($))
+
 import SpecHelper
 
 import Data.Timezones.TZ (tzEST)

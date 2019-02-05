@@ -3,6 +3,9 @@ module Data.String.StripSpec (main, spec) where
 import Test.Hspec
 import Test.QuickCheck
 
+import Prelude (IO)
+import Prelude (($))
+
 import Data.String.Strip
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is

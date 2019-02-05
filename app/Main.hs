@@ -1,7 +1,10 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# OPTIONS_GHC -fno-cse #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
+    
+import Prelude (Show, FilePath, String, IO)
+import Prelude (($), (++))
+import Prelude (print)
 
 import Data.Data (Data, Typeable)
 import Data.Time (TimeZone)
@@ -9,16 +12,17 @@ import Data.Timezones.TZ (tzParse)
 import Data.Void (Void)
 import Data.ByteString (ByteString)
 import Conduit ((.|))
-import Conduit (Conduit, ConduitT, Sink, ResourceT)
+import Conduit (ConduitT, ResourceT)
 import Conduit (runConduit)
 
-import System.Console.CmdArgs (def, help, opt, typ, argPos, args, cmdArgsMode, cmdArgsRun, (&=))
+import System.Console.CmdArgs (CmdArgs, def, help, opt, typ, argPos, cmdArgsMode, cmdArgsRun, (&=))
+import System.Console.CmdArgs.Explicit (Mode)
 
 import qualified Data.Conduit.Combinators as Cmb (print)
 
 import OpDesign.TicksReader (readTicks)
 import OpDesign.OrderBookStream (tickStream, orderBookStream)
-import OpDesign.OrderBook (OrderBook)
+import OpDesign.OrderBook ()
 
 -----------------------------------------------------------
 
@@ -28,9 +32,10 @@ data OpDesign = OpDesign {
     timezone :: String
     } deriving (Show, Data, Typeable)
 
+opdesign :: Mode (CmdArgs OpDesign)
 opdesign = cmdArgsMode OpDesign{
-    pattern = def &= opt ".*/[^.]+.csv" &= help "pattern for CSV files within archive",
-    timezone = def &= opt "EST" &= help "timezone for dates in archive file",
+    pattern = def &= opt (".*/[^.]+.csv" :: ByteString) &= help "pattern for CSV files within archive",
+    timezone = def &= opt ("EST" :: ByteString) &= help "timezone for dates in archive file",
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
 

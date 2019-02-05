@@ -1,21 +1,16 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
-
 module OpDesign.SignalProcessing where
 
-import Prelude (IO, Int, Monad, Num, Double, Rational, Maybe(..), Fractional)
+import Prelude (IO, Int, Monad, Num, Double, Rational, Maybe(..), Fractional, Bool)
 import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin, return, init, sum, zipWith, take, fst)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>), (.), (>>=))
 
 import Conduit (ConduitT, Identity)
-import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, repeatMC, replicateMC, runConduit)
+import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, repeatMC, replicateMC, runConduit, runWriterC, execWriterC)
 import Conduit ((.|))
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 import Control.Monad.Trans.State.Strict (StateT)
+import Control.Monad.Writer (MonadWriter, tell, runWriter)
+import Control.Monad.Trans.Writer.Strict (WriterT)
 
 import System.Random (StdGen(..), split, newStdGen, randomR, randomRs, getStdGen, mkStdGen, setStdGen)
 
@@ -32,6 +27,29 @@ shift count signal = yield (fromInteger 0) >> signal .| slidingWindowC (count + 
 
 operator :: (a -> a -> a) -> Signal a -> Signal a -> Signal a
 operator func signal1 signal2 = DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
+
+
+type WriterGroup = [Int]
+
+--filterIIRC :: (Monad m) => IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational (StateT IIR_State m) ()
+--grouperC :: (MonadWriter WriterGroup m) => (Int -> Int -> Bool) -> ConduitT Int [Int] (WriterT WriterGroup m) WriterGroup 
+grouperC isSameGroup = do
+        input <- await
+        case input of
+            Nothing -> return ()
+            Just value -> do
+                tell [value]
+                yield value
+                grouperC isSameGroup
+
+--tfGroupBy :: (Int -> Int -> Bool) -> (Monad m) => ConduitT Int [Int] m ()
+tfGroupBy isSameGroup = execWriterC $ grouperC isSameGroup
+-- 
+-- tfIIR :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> IIR_State -> Transfer Rational Rational
+-- tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initialOut) $ filterIIRC coeffsIn coeffsOut
+
+--tfIntegrate :: Rational -> Transfer Rational Rational
+--tfIntegrate initial = evalStateC (initial, initial) integratorC
 
 -- period is measured in number of samples
 genSinusoid :: Int -> Int -> Signal Int
@@ -67,9 +85,9 @@ opSub input1 input2 = operator (-) input1 input2
 opMul :: (Num a) => Signal a -> Signal a -> Signal a
 opMul input1 input2 = operator (*) input1 input2
 
-type IntegratorState = (Rational, Rational)
+type StateIntegrator = (Rational, Rational)
 
-integratorC :: (MonadState IntegratorState m) => ConduitT Rational Rational m ()
+integratorC :: (MonadState StateIntegrator m) => ConduitT Rational Rational m ()
 integratorC = do
         input <- await
         case input of

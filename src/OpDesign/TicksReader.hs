@@ -3,6 +3,10 @@
 
 module OpDesign.TicksReader where
 
+import Prelude (Bool, FilePath, String, IO)
+import Prelude (filter, return, fmap)
+import Prelude ((.), ($))
+
 import Codec.Archive.Zip (EntrySelector, ZipArchive, withArchive, sourceEntry, getEntries, getEntryName)
 import Data.Maybe (isJust)
 import Data.List (sort)

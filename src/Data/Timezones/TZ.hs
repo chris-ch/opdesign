@@ -1,5 +1,8 @@
 module Data.Timezones.TZ where
     
+import Prelude (String, error, read, Bool(..))
+import Prelude ((*), ($))
+
 import Data.Time (UTCTime, ZonedTime, LocalTime, TimeZone(..), localTimeToUTC)
 
 tzEST = TimeZone (-5 * 60) True "EST"

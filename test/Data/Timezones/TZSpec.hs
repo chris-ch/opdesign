@@ -3,6 +3,10 @@ module Data.Timezones.TZSpec (main, spec) where
 import Test.Hspec
 import Test.QuickCheck
 
+import Prelude (IO)
+import Prelude (read)
+import Prelude (($))
+
 import Data.Time (UTCTime)
 import Data.Timezones.TZ (tzEST, asUTC)
 

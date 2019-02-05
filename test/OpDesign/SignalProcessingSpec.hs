@@ -7,7 +7,7 @@ import SpecHelper
 
 import Prelude (Maybe(..), IO, String, Bool(..), Int, Integer, Rational, Monad, Monoid, Ord, Num)
 import Prelude (fromInteger, mappend, read, zipWith, last, drop, print, scanl, maybe, return, not)
-import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=))
+import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=), (==))
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 
 import Data.Void (Void)
@@ -23,7 +23,7 @@ import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM)
 import qualified Data.Conduit.Combinators as Cmb (print)
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, genRandom)
+import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, tfGroupBy, genRandom)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -151,6 +151,18 @@ spec = describe "Testing signal processing operators" $ do
         it "should zip input with diff" $
             runConduitPure ( joined .| sinkList )
         `shouldBe` expected
+
+    --context "grouping" $
+    --    let
+    --        input :: (Monad m) => ConduitT () Int m ()
+    --        input = yieldMany [1, 1, 0, 1, 1, 1, 1, 0, 0]
+--
+     --       expected :: [[Int]]
+     --       expected = [[1, 1], [0], [1, 1, 1, 1], [0, 0]]
+     --   in
+     --   it "should group identical values" $
+    --        runConduitPure (input .| tfGroupBy (==)  .| sinkList)
+     --   `shouldBe` expected
 
     context "operator applied on two sources" $
         let

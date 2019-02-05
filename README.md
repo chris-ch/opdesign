@@ -14,4 +14,6 @@ Running the program:
 Notice the first argument has to be -- in order to escape stack's options.
 
 Example running exe:
-> stack run opdesign-exe -- --pattern=2015051 data/SBH6%20Comdty.zip
+> stack run opdesign-exe -- --pattern=2015051 --timezone=EDT data/SBH6%20Comdty.zip
+> stack run opdesign-exe -- --pattern=20150618 --timezone=EDT localdata/CL1%20Comdty.zip
+> stack run opdesign-exe -- --pattern=20150618 --timezone=BST localdata/CO1%20Comdty.zip

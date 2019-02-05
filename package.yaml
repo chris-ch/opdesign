@@ -6,6 +6,18 @@ author:              "Christophe"
 maintainer:          "ch.alexandre@bluewin.ch"
 copyright:           "Optimacom sarl"
 
+ghc-options:
+- -Wall
+- -fno-cse
+
+default-extensions:
+- OverloadedStrings
+- NoImplicitPrelude
+- FlexibleContexts
+- DeriveDataTypeable
+- MultiParamTypeClasses
+- RankNTypes
+
 extra-source-files:
 - README.md
 - ChangeLog.md

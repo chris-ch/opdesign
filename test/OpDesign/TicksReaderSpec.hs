@@ -1,5 +1,8 @@
 module OpDesign.TicksReaderSpec where
 
+import Prelude (map)
+import Prelude (($), (.))
+
 import SpecHelper
 
 import Codec.Archive.Zip (getEntryName)

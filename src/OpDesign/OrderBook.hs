@@ -1,7 +1,8 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-
 module OpDesign.OrderBook where
+
+import Prelude (Show, Semigroup, Maybe(..), Bool(..), String, Float, Eq, Rational, Int, Ord)
+import Prelude (truncate, head, read, show, otherwise, fst, map)
+import Prelude ((<>), ($), (==), (!!), (.))
 
 import Data.Time (UTCTime, TimeZone)
 import Data.Timezones.TZ (asUTC)

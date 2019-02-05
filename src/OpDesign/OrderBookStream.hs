@@ -1,7 +1,8 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-
 module OpDesign.OrderBookStream where
+
+import Prelude (Monad, Maybe(..), Rational, String, IO)
+import Prelude (otherwise, return, maybe)
+import Prelude ((.), ($), (/=), (==), (>>=), (+), (/))
 
 import qualified Data.Conduit.Text as CText (lines)
 
