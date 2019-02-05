@@ -1,6 +1,6 @@
 module OpDesign.OrderBook where
 
-import Prelude (Show, Semigroup, Maybe(..), Bool(..), String, Float, Eq, Rational, Int, Ord)
+import Prelude (Show, Semigroup, Maybe(..), Bool(..), String, Float, Eq, Rational, Int, Ord, Double)
 import Prelude (truncate, head, read, show, otherwise, fst, map, error)
 import Prelude ((<>), ($), (==), (!!), (.), (++))
 

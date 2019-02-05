@@ -1,25 +1,24 @@
 module OpDesign.OrderBookStream where
 
-import Prelude (Monad, Maybe(..), Rational, String, IO)
+import Prelude (Monad, Maybe(..), Rational, String, IO, Int)
 import Prelude (otherwise, return, maybe)
 import Prelude ((.), ($), (/=), (==), (>>=), (+), (/))
 
 import qualified Data.Conduit.Text as CText (lines)
 
 import Data.List (dropWhileEnd)
-import Data.Text (pack, unpack)
+import Data.Text (unpack)
 import Data.Time (TimeZone)
 import Data.ByteString (ByteString)
-import Data.Time (UTCTime(..), DiffTime, addUTCTime, secondsToDiffTime)
-import Data.Time.LocalTime (TimeOfDay(..), todHour, todMin, todSec, timeToTimeOfDay, timeOfDayToTime)
-import Data.Time.Calendar (Day, fromGregorian, toGregorian)
+import Data.Time (UTCTime(..), addUTCTime)
+import Data.Time.LocalTime (TimeOfDay(..), todMin, timeToTimeOfDay, timeOfDayToTime)
+import Data.Time.Calendar ()
 import Conduit ((.|))
 import Conduit (ConduitT, ResourceT, await)
 import Conduit (mapC, decodeUtf8C, scanlC)
+import Conduit()
 
-import qualified Conduit as DC (ZipSource(..), getZipSource)
-
-import OpDesign.OrderBook (OrderBook(..), updateOrderBook, fromTickData, tickFields, isValid, fromPrice)
+import OpDesign.OrderBook (OrderBook(..), updateOrderBook, fromTickData, tickFields, fromPrice)
 
 scanl1C :: Monad m => (a -> a -> a) -> ConduitT a a m ()
 scanl1C f = await >>= maybe (return ()) (scanlC f)
@@ -50,7 +49,8 @@ trfSample = scanl1C lastOfPeriod
         lastOfPeriod orderBook orderBookNext
             | extractMinute (date orderBook) /= extractMinute (date orderBookNext) = OrderBook {date=date orderBook, bidVolume=bidVolume orderBook, bidPrice=bidPrice orderBook, askPrice=askPrice orderBook, askVolume=askVolume orderBook }
             | otherwise = OrderBook {date=date orderBookNext, bidVolume=bidVolume orderBookNext, bidPrice=bidPrice orderBookNext, askPrice=askPrice orderBookNext, askVolume=askVolume orderBookNext }
-
+            
+extractMinute :: UTCTime -> Int
 extractMinute utcDate = todMin (extractTime utcDate)
 
 extractTime :: UTCTime -> TimeOfDay
@@ -67,4 +67,4 @@ ceilingMinute time = UTCTime (utctDay time') (timeOfDayToTime (TimeOfDay hour mi
     where
         time' :: UTCTime
         time' = plusOneMin time
-        (TimeOfDay hour minute second) = timeToTimeOfDay (utctDayTime time')
+        (TimeOfDay hour minute _) = timeToTimeOfDay (utctDayTime time')

@@ -1,18 +1,18 @@
 module OpDesign.SignalProcessing where
 
-import Prelude (IO, Int, Monad, Num, Double, Rational, Maybe(..), Fractional, Bool)
-import Prelude (replicate, pi, round, cycle, map, fromIntegral, fromInteger, sin, return, init, sum, zipWith, take, fst)
-import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>), (.), (>>=))
+import Prelude (Int, Monad, Num, Double, Rational, Maybe(..))
+import Prelude (replicate, pi, round, cycle, fromIntegral, fromInteger, sin, return, init, sum, zipWith)
+import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 
 import Conduit (ConduitT, Identity)
-import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, repeatMC, replicateMC, runConduit, runWriterC, execWriterC)
+import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, execWriterC)
 import Conduit ((.|))
-import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
+import Control.Monad.State (MonadState, get, put, lift)
 import Control.Monad.Trans.State.Strict (StateT)
-import Control.Monad.Writer (MonadWriter, tell, runWriter)
-import Control.Monad.Trans.Writer.Strict (WriterT)
+import Control.Monad.Writer (tell)
+import Control.Monad.Trans.Writer.Strict()
 
-import System.Random (StdGen(..), split, newStdGen, randomR, randomRs, getStdGen, mkStdGen, setStdGen)
+import System.Random (randomRs, mkStdGen)
 
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
@@ -24,6 +24,8 @@ shift count signal = yield (fromInteger 0) >> signal .| slidingWindowC (count + 
     where
         delta :: (Num a) => [a] -> a
         delta (m:n:_) = n - m 
+        delta [_] = 0
+        delta [] = 0 
 
 operator :: (a -> a -> a) -> Signal a -> Signal a -> Signal a
 operator func signal1 signal2 = DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
