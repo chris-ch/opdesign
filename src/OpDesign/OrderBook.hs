@@ -19,7 +19,9 @@ parseTickType wrongTickType = error $ "Invalid tick type: " ++ wrongTickType
 
 newtype Price = Price Rational deriving (Eq, Ord)
 instance Show Price where
-    show (Price aPrice) = (showFFloat (Just 6) $ fromRat aPrice) ""
+    show (Price aPrice) = (toFloatStr (fromRat aPrice :: Double)) ""
+        where
+            toFloatStr = showFFloat (Just 6) 
 
 fromPrice :: Price -> Rational
 fromPrice (Price value) = value

@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Main where
     
 import Prelude (Show, FilePath, String, IO)
