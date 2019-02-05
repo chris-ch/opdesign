@@ -1,7 +1,7 @@
 module Data.Timezones.TZSpec (main, spec) where
 
 import Test.Hspec
-import Test.QuickCheck
+import Test.QuickCheck()
 
 import Prelude (IO)
 import Prelude (read)

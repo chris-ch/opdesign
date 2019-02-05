@@ -7,7 +7,7 @@ import SpecHelper
 
 import Codec.Archive.Zip (getEntryName)
 
-import Data.Text (pack, unpack)
+import Data.Text (unpack)
 
 import OpDesign.TicksReader (extractEntries, selectEntries, isTickFile)
 

@@ -1,7 +1,7 @@
 module OpDesign.TradingStrategySpec where
 
 import Prelude (String, Monad, Maybe(..))
-import Prelude (read, lines, map)
+import Prelude (read, lines)
 import Prelude (($))
 
 import SpecHelper
@@ -12,8 +12,8 @@ import Conduit (ConduitT)
 import Conduit (yieldMany, runConduitPure,mapC, sinkList)
 import Conduit ((.|))
 
-import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM) 
-import qualified Data.Conduit.Combinators as Cmb (print)
+import Data.Conduit.List()
+import Data.Conduit.Combinators()
 
 import OpDesign.OrderBookStream (orderBookStream)
 
