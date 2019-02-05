@@ -5,62 +5,57 @@ module OpDesign.SignalProcessingSpec where
 
 import SpecHelper
 
-import Prelude (Maybe(..), IO, String, Bool(..), Int, Integer, Rational, Monad, Monoid, Ord, Num)
-import Prelude (fromInteger, mappend, read, zipWith, last, drop, print, scanl, maybe, return, not)
-import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=), (==))
+import Prelude (Maybe(..), Int, Integer, Rational, Monad, Num)
+import Prelude (zipWith, drop, maybe, return)
+import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=))
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 
-import Data.Void (Void)
-import Conduit (ConduitT, ResourceT, ConduitM)
-import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, mapMC, iterMC, foldMapMC, takeC, lastC, evalStateC, runResourceT)
-import Conduit (await, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, sinkList)
+import Data.Void()
+import Conduit (ConduitT)
+import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, evalStateC)
+import Conduit (await, scanlC, foldlC, dropC, slidingWindowC, sinkList)
 import Conduit ((.|))
 
 import Data.List (sum)
 import Text.Show (show)
-import Data.Time (UTCTime)
-import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM) 
-import qualified Data.Conduit.Combinators as Cmb (print)
+import Data.Time()
+import Data.Conduit.List()
+import Data.Conduit.Combinators()
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, Transfer, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, tfGroupBy, genRandom)
+import OpDesign.SignalProcessing (Signal, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, genRandom)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
 
-    context "simple" $
-        it "should yield 3" $ 
-            1 + 2 
-        `shouldBe` 3
-
     context "yielding array of 10 first integers" $
         it "should yield many" $ 
-            runConduitPure (yieldMany [1..10] .| sinkList)
+            runConduitPure (yieldMany [1..10 :: Integer] .| sinkList)
         `shouldBe` [1..10]
 
     context "transforming to string" $
         it "should produce strings" $
-            runConduitPure ( yieldMany [1..10] .| mapC show .| sinkList )
+            runConduitPure ( yieldMany [1..10 :: Integer] .| mapC show .| sinkList )
         `shouldBe` ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
 
     context "grouped values" $
         it "should yield many" $ 
-            runConduitPure (yieldMany [[1, 2, 3], [4, 5], [6]] .| sinkList)
+            runConduitPure (yieldMany [[1, 2, 3 :: Integer], [4, 5 :: Integer], [6 :: Integer]] .| sinkList)
         `shouldBe` [[1, 2, 3], [4, 5], [6]]
 
     context "summing grouped values" $
         it "should yield sum of individual groups" $ 
-            runConduitPure (yieldMany [[1, 2, 3], [4, 5], [6]] .|  mapC sum .| sinkList)
+            runConduitPure (yieldMany [[1, 2, 3 :: Integer], [4, 5 :: Integer], [6 :: Integer]] .|  mapC sum .| sinkList)
         `shouldBe` [6, 9, 6]
 
     context "yielding array of 10 first integers increased by 1" $
         it "should be increased by 1" $
-            runConduitPure ( yieldMany [1..10] .| mapC (+ 1) .| sinkList )
+            runConduitPure ( yieldMany [1..10 :: Integer] .| mapC (+ 1) .| sinkList )
         `shouldBe` [2..11]
 
     context "summing using foldlC" $
         it "should compute sum of integers up to 10" $
-            runConduitPure ( yieldMany [1..10] .| foldlC (+) 0 )
+            runConduitPure ( yieldMany [1..10 :: Integer] .| foldlC (+) 0 )
         `shouldBe` 55
 
     context "yielding sinusoidal sequence" $
@@ -81,7 +76,7 @@ spec = describe "Testing signal processing operators" $ do
     context "yielding a constant signal" $
         it "should generate predicted int sequence" $
             runConduitPure (genConstant 2 .| takeC 22 .| sinkList)
-        `shouldBe` [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
+        `shouldBe` [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2 :: Integer]
 
     context "negates input signal" $
         it "should generate predicted int sequence" $
@@ -90,7 +85,7 @@ spec = describe "Testing signal processing operators" $ do
 
     context "sliding window" $
         it "should create sliding windows" $
-            runConduitPure ( yieldMany [1..10] .| slidingWindowC 4 .| sinkList )
+            runConduitPure ( yieldMany [1..10 :: Integer] .| slidingWindowC 4 .| sinkList )
         `shouldBe` [[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6], [4, 5, 6, 7], [5, 6, 7, 8], [6, 7, 8, 9], [7, 8, 9, 10]]
 
     context "sliding window" $
@@ -123,6 +118,8 @@ spec = describe "Testing signal processing operators" $ do
 
             diff :: [Int] -> Int
             diff (a:b:_) = b - a
+            diff [_] = 0
+            diff [] = 0
             
             expected :: [Int]
             expected = [0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0]
@@ -141,6 +138,8 @@ spec = describe "Testing signal processing operators" $ do
 
             diff :: [Int] -> Int
             diff (a:b:_) = b - a
+            diff [_] = 0
+            diff [] = 0
             
             joined :: (Monad m) => ConduitT () (Int, Int) m ()
             joined = DC.getZipSource $ (,) <$> DC.ZipSource input <*> DC.ZipSource (yield 0 >> input .| sliding2 .| mapC diff)
@@ -198,7 +197,7 @@ spec = describe "Testing signal processing operators" $ do
         let
             integrator :: [Rational] -> State (Rational, Rational) Rational
             integrator [] = do
-                (y_0, x_0) <- get
+                (y_0, _) <- get
                 return y_0
                 
             integrator (x_1:xs) = do
@@ -223,7 +222,7 @@ spec = describe "Testing signal processing operators" $ do
                     x0 <-  await
                     case x0 of
                         Nothing -> return ()
-                        Just x -> do
+                        Just _ -> do
                             lift $ modify (+1)
                             r <- lift get
                             yield r
@@ -232,18 +231,18 @@ spec = describe "Testing signal processing operators" $ do
             expected = [1, 2, 3, 4, 5, 6, 7, 8]
         in
         it "shows result according to state" $ do
-            res <- (runConduit ( input .| evalStateC 0 counterC .| sinkList ))
+            res <- (runConduit ( input .| evalStateC (0 :: Integer) counterC .| sinkList ))
             res `shouldBe` expected
 
     context "Integrator using State and Conduit" $
         let
             input :: (Monad m) => ConduitT () Rational m ()
-            input = yieldMany [2, 2, 2, 1, 1, 1, -1, -1]
+            input = yieldMany [2, 2, 2, 1, 1, 1, -1, -1 :: Rational]
 
             expected = [1, 3, 5, 6.5, 7.5, 8.5, 8.5, 7.5 :: Rational]
         in
         it "shows result according to state" $
-            (runConduitPure ( input .| tfIntegrate 0 .| sinkList ))
+            (runConduitPure ( input .| tfIntegrate (0 :: Rational) .| sinkList ))
         `shouldBe` expected
 
     context "Integrator using IIR filter" $

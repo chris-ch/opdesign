@@ -1,8 +1,8 @@
 module OpDesign.OrderBook where
 
 import Prelude (Show, Semigroup, Maybe(..), Bool(..), String, Float, Eq, Rational, Int, Ord)
-import Prelude (truncate, head, read, show, otherwise, fst, map)
-import Prelude ((<>), ($), (==), (!!), (.))
+import Prelude (truncate, head, read, show, otherwise, fst, map, error)
+import Prelude ((<>), ($), (==), (!!), (.), (++))
 
 import Data.Time (UTCTime, TimeZone)
 import Data.Timezones.TZ (asUTC)
@@ -15,17 +15,18 @@ parseTickType :: String -> TickType
 parseTickType "TRADE" = Trade
 parseTickType "BEST_BID" = BestBid
 parseTickType "BEST_ASK" = BestAsk
+parseTickType wrongTickType = error $ "Invalid tick type: " ++ wrongTickType
 
 newtype Price = Price Rational deriving (Eq, Ord)
 instance Show Price where
-    show (Price price) = (showFFloat (Just 6) $ fromRat price) ""
+    show (Price aPrice) = (showFFloat (Just 6) $ fromRat aPrice) ""
 
 fromPrice :: Price -> Rational
 fromPrice (Price value) = value
 
 newtype Volume = Volume Int deriving (Eq, Ord)
 instance Show Volume where
-    show (Volume volume) = show volume
+    show (Volume aVolume) = show aVolume
     
 -- Example: "2014-10-28 06:53:05.000000,TRADE,8938.5,0.0,S"
 data TickData = TickData {

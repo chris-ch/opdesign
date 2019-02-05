@@ -5,22 +5,22 @@ module OpDesign.OrderBookSpec where
 
 import SpecHelper
 
-import Prelude (String, Int, Integer, Monad, Monoid, Ord, Num, Bool(..))
-import Prelude (fromInteger, mappend, read, zipWith, lines, drop, Maybe(..), IO, ($), (<*>), (<$>), (+), (-), (*), (>>), (.))
+import Prelude (String, Integer, Bool(..))
+import Prelude (read, lines, Maybe(..), (+), (>>), ($))
 import Data.Ratio ((%))
-import Data.Void (Void)
-import Data.Time (DiffTime)
-import Conduit (ConduitT, ResourceT)
-import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, scanlC, foldlC, foldMapC, dropC, sumC, slidingWindowC, decodeUtf8C, sinkList)
+import Data.Void()
+import Data.Time()
+import Conduit ()
+import Conduit (yieldMany, runConduitPure, mapC, scanlC, dropC, sinkList)
 import Conduit ((.|))
 
-import Data.List (sum)
-import Text.Show (show)
+import Data.List()
+import Text.Show ()
 import Data.Time (UTCTime)
-import Data.Timezones.TZ (asUTC, tzEST, tzUTC)
-import qualified Data.Conduit.List as CL (scanl, scan, mapAccum, mapAccumM) 
-import qualified Data.Conduit.Combinators as Cmb (print)
-import qualified Conduit as DC (ZipSource(..), getZipSource)
+import Data.Timezones.TZ (tzEST, tzUTC)
+import Data.Conduit.List()
+import Data.Conduit.Combinators()
+import Conduit()
 
 import OpDesign.OrderBookStream (orderBookStream, scanl1C, trfMidPrice, trfSample, ceilingMinute)
 
@@ -44,17 +44,17 @@ spec = describe "Testing reading ticks using pipes" $ do
 
     context "simple" $
         it "should yield 3" $ 
-            1 + 2 
+            (1 + 2 :: Integer)
         `shouldBe` 3
 
     context "yielding fibonnacci series" $
         it "should produce fibbonaci series" $
-            runConduitPure ( yieldMany [1..10] .| scanlC (+) 0 .| (dropC 1 >> sinkList) )
-        `shouldBe` [1, 3, 6, 10, 15, 21, 28, 36, 45, 55]
+            runConduitPure ( yieldMany [1..10 :: Integer] .| scanlC (+) 0 .| (dropC 1 >> sinkList) )
+        `shouldBe` [1, 3, 6, 10, 15, 21, 28, 36, 45, 55 :: Integer]
 
     context "yielding fibonnacci series using scanlC" $
         it "should produce fibbonaci series" $
-            runConduitPure ( yieldMany [1..10] .| scanl1C (+) .| sinkList )
+            runConduitPure ( yieldMany [1..10 :: Integer] .| scanl1C (+) .| sinkList )
         `shouldBe` [1, 3, 6, 10, 15, 21, 28, 36, 45, 55]
 
     context "inline test data" $
