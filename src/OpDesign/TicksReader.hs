@@ -1,6 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-
 module OpDesign.TicksReader where
 
 import Prelude (Bool, FilePath, String, IO)

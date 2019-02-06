@@ -1,16 +1,18 @@
 module OpDesign.SignalProcessing where
 
-import Prelude (Int, Monad, Num, Double, Rational, Maybe(..))
-import Prelude (replicate, pi, round, cycle, fromIntegral, fromInteger, sin, return, init, sum, zipWith)
+import Prelude (Int, Monad, Num, Double, Rational, Maybe(..), Bool, Monoid)
+import Prelude (replicate, pi, round, cycle, fromIntegral, fromInteger, sin, return, init, sum, zipWith, fmap, fst)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 
 import Conduit (ConduitT, Identity)
-import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, execWriterC)
+import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await)
 import Conduit ((.|))
+import Data.Conduit.List (groupBy)
+
 import Control.Monad.State (MonadState, get, put, lift)
 import Control.Monad.Trans.State.Strict (StateT)
-import Control.Monad.Writer (tell)
-import Control.Monad.Trans.Writer.Strict()
+import Control.Monad.Writer (MonadWriter, tell)
+import Control.Monad.Trans.Writer.Strict (WriterT)
 
 import System.Random (randomRs, mkStdGen)
 
@@ -29,29 +31,6 @@ shift count signal = yield (fromInteger 0) >> signal .| slidingWindowC (count + 
 
 operator :: (a -> a -> a) -> Signal a -> Signal a -> Signal a
 operator func signal1 signal2 = DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
-
-
-type WriterGroup = [Int]
-
---filterIIRC :: (Monad m) => IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational (StateT IIR_State m) ()
---grouperC :: (MonadWriter WriterGroup m) => (Int -> Int -> Bool) -> ConduitT Int [Int] (WriterT WriterGroup m) WriterGroup 
-grouperC isSameGroup = do
-        input <- await
-        case input of
-            Nothing -> return ()
-            Just value -> do
-                tell [value]
-                yield value
-                grouperC isSameGroup
-
---tfGroupBy :: (Int -> Int -> Bool) -> (Monad m) => ConduitT Int [Int] m ()
-tfGroupBy isSameGroup = execWriterC $ grouperC isSameGroup
--- 
--- tfIIR :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> IIR_State -> Transfer Rational Rational
--- tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initialOut) $ filterIIRC coeffsIn coeffsOut
-
---tfIntegrate :: Rational -> Transfer Rational Rational
---tfIntegrate initial = evalStateC (initial, initial) integratorC
 
 -- period is measured in number of samples
 genSinusoid :: Int -> Int -> Signal Int
@@ -89,7 +68,7 @@ opMul input1 input2 = operator (*) input1 input2
 
 type StateIntegrator = (Rational, Rational)
 
-integratorC :: (MonadState StateIntegrator m) => ConduitT Rational Rational m ()
+integratorC :: (Monad m) => ConduitT Rational Rational (StateT StateIntegrator m) ()
 integratorC = do
         input <- await
         case input of
@@ -104,19 +83,19 @@ integratorC = do
 tfIntegrate :: Rational -> Transfer Rational Rational
 tfIntegrate initial = evalStateC (initial, initial) integratorC
 
-type IIR_Inputs = [Rational]
-type IIR_Outputs = [Rational]
-type IIR_State = (IIR_Inputs, IIR_Outputs)
-type IIR_CoefficientsInputs = [Rational]
-type IIR_CoefficientsOutputs = [Rational]
+type InputsIIR = [Rational]
+type OutputsIIR = [Rational]
+type StateIIR = (InputsIIR, OutputsIIR)
+type CoefficientsInputsIIR = [Rational]
+type CoefficientsOutputsIIR = [Rational]
 
-filterIIRC :: (Monad m) => IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> ConduitT Rational Rational (StateT IIR_State m) ()
+filterIIRC :: (Monad m) => CoefficientsInputsIIR -> CoefficientsOutputsIIR -> ConduitT Rational Rational (StateT StateIIR m) ()
 filterIIRC coeffsIn coeffsOut = do
-        input <- await :: (Monad m) => ConduitT Rational Rational (StateT IIR_State m) (Maybe Rational)
+        input <- await :: (Monad m) => ConduitT Rational Rational (StateT StateIIR m) (Maybe Rational)
         case input of
             Nothing -> return ()
             Just x -> do
-                (prevInputs, prevOutputs) <- lift get :: (Monad m) => ConduitT Rational Rational (StateT IIR_State m) IIR_State
+                (prevInputs, prevOutputs) <- lift get :: (Monad m) => ConduitT Rational Rational (StateT StateIIR m) StateIIR
                 let inputs = x : remainder where remainder = init prevInputs
                 let y = sum (zipWith (*) inputs coeffsIn) + sum (zipWith (*) prevOutputs coeffsOut)
                 let outputs = y : remainder where remainder = init prevOutputs
@@ -124,9 +103,12 @@ filterIIRC coeffsIn coeffsOut = do
                 yield y
                 filterIIRC coeffsIn coeffsOut
 
-tfIIR :: IIR_CoefficientsInputs -> IIR_CoefficientsOutputs -> IIR_State -> Transfer Rational Rational
+tfIIR :: CoefficientsInputsIIR -> CoefficientsOutputsIIR -> StateIIR -> Transfer Rational Rational
 tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initialOut) $ filterIIRC coeffsIn coeffsOut
 
 -- random number generator
 genRandom :: (Monad m) => (Int, Int) -> Int -> ConduitT () Int m ()
 genRandom (bottom, top) seed = yieldMany (randomRs (bottom, top) (mkStdGen seed))
+
+tfGroupBy :: (Int -> Int -> Bool) -> Transfer Int [Int]
+tfGroupBy isSameGroup = groupBy isSameGroup

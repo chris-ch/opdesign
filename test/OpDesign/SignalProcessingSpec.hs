@@ -7,7 +7,7 @@ import SpecHelper
 
 import Prelude (Maybe(..), Int, Integer, Rational, Monad, Num)
 import Prelude (zipWith, drop, maybe, return)
-import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=))
+import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=), (==))
 import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 
 import Data.Void()
@@ -23,7 +23,7 @@ import Data.Conduit.List()
 import Data.Conduit.Combinators()
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, genRandom)
+import OpDesign.SignalProcessing (Signal, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, genRandom, tfGroupBy)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -47,6 +47,17 @@ spec = describe "Testing signal processing operators" $ do
         it "should yield sum of individual groups" $ 
             runConduitPure (yieldMany [[1, 2, 3 :: Integer], [4, 5 :: Integer], [6 :: Integer]] .|  mapC sum .| sinkList)
         `shouldBe` [6, 9, 6]
+
+    context "grouping" $
+        let
+            input :: (Monad m) => ConduitT () Int m ()
+            input = yieldMany [1, 1, 0, 1, 1, 1, 1, 0, 0]
+            expected :: [[Int]]
+            expected = [[1, 1], [0], [1, 1, 1, 1], [0, 0]]
+        in
+        it "should group identical values" $
+            runConduitPure (input .| tfGroupBy (==) .| sinkList)
+        `shouldBe` expected
 
     context "yielding array of 10 first integers increased by 1" $
         it "should be increased by 1" $
@@ -150,18 +161,6 @@ spec = describe "Testing signal processing operators" $ do
         it "should zip input with diff" $
             runConduitPure ( joined .| sinkList )
         `shouldBe` expected
-
-    --context "grouping" $
-    --    let
-    --        input :: (Monad m) => ConduitT () Int m ()
-    --        input = yieldMany [1, 1, 0, 1, 1, 1, 1, 0, 0]
---
-     --       expected :: [[Int]]
-     --       expected = [[1, 1], [0], [1, 1, 1, 1], [0, 0]]
-     --   in
-     --   it "should group identical values" $
-    --        runConduitPure (input .| tfGroupBy (==)  .| sinkList)
-     --   `shouldBe` expected
 
     context "operator applied on two sources" $
         let
