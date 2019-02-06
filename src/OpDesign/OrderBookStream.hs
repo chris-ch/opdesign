@@ -1,8 +1,8 @@
 module OpDesign.OrderBookStream where
 
 import Prelude (Monad, Maybe(..), Rational, String, IO, Int)
-import Prelude (otherwise, return, maybe)
-import Prelude ((.), ($), (/=), (==), (>>=), (+), (/))
+import Prelude (return, maybe, last)
+import Prelude ((.), ($), (==), (>>=), (+), (/))
 
 import qualified Data.Conduit.Text as CText (lines)
 
@@ -17,6 +17,7 @@ import Conduit ((.|))
 import Conduit (ConduitT, ResourceT, await)
 import Conduit (mapC, decodeUtf8C, scanlC)
 import Conduit()
+import Data.Conduit.List (groupBy)
 
 import OpDesign.OrderBook (OrderBook(..), updateOrderBook, fromTickData, tickFields, fromPrice)
 
@@ -43,13 +44,11 @@ trfMidPrice = mapC midPrice
         midPrice OrderBook {date=_, bidVolume=Just _, bidPrice=Just bid, askPrice=Just ask, askVolume=Just _ } = Just ((fromPrice bid + fromPrice ask) / 2)
         midPrice _ = Nothing
 
-trfSample :: Monad m => ConduitT OrderBook OrderBook m ()
-trfSample = scanl1C lastOfPeriod
+trfSample :: (Monad m) => ConduitT OrderBook OrderBook m ()
+trfSample = groupBy sameMinute .| mapC last .| mapC (\orderbook -> orderbook {date = ceilingMinute (date orderbook)})
     where
-        lastOfPeriod orderBook orderBookNext
-            | extractMinute (date orderBook) /= extractMinute (date orderBookNext) = OrderBook {date=date orderBook, bidVolume=bidVolume orderBook, bidPrice=bidPrice orderBook, askPrice=askPrice orderBook, askVolume=askVolume orderBook }
-            | otherwise = OrderBook {date=date orderBookNext, bidVolume=bidVolume orderBookNext, bidPrice=bidPrice orderBookNext, askPrice=askPrice orderBookNext, askVolume=askVolume orderBookNext }
-            
+        sameMinute orderBook orderBookNext = extractMinute (date orderBook) == extractMinute (date orderBookNext)
+
 extractMinute :: UTCTime -> Int
 extractMinute utcDate = todMin (extractTime utcDate)
 

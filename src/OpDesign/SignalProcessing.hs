@@ -1,7 +1,7 @@
 module OpDesign.SignalProcessing where
 
-import Prelude (Int, Monad, Num, Double, Rational, Maybe(..), Bool, Monoid)
-import Prelude (replicate, pi, round, cycle, fromIntegral, fromInteger, sin, return, init, sum, zipWith, fmap, fst)
+import Prelude (Int, Monad, Num, Double, Rational, Maybe(..), Bool)
+import Prelude (replicate, pi, round, cycle, fromIntegral, fromInteger, sin, return, init, sum, zipWith)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 
 import Conduit (ConduitT, Identity)
@@ -9,10 +9,8 @@ import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await)
 import Conduit ((.|))
 import Data.Conduit.List (groupBy)
 
-import Control.Monad.State (MonadState, get, put, lift)
+import Control.Monad.State (get, put, lift)
 import Control.Monad.Trans.State.Strict (StateT)
-import Control.Monad.Writer (MonadWriter, tell)
-import Control.Monad.Trans.Writer.Strict (WriterT)
 
 import System.Random (randomRs, mkStdGen)
 
@@ -110,5 +108,5 @@ tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initia
 genRandom :: (Monad m) => (Int, Int) -> Int -> ConduitT () Int m ()
 genRandom (bottom, top) seed = yieldMany (randomRs (bottom, top) (mkStdGen seed))
 
-tfGroupBy :: (Int -> Int -> Bool) -> Transfer Int [Int]
-tfGroupBy isSameGroup = groupBy isSameGroup
+tfGroupBy :: (a -> a -> Bool) -> Transfer a [a]
+tfGroupBy = groupBy
