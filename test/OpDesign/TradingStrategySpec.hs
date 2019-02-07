@@ -16,6 +16,7 @@ import Data.Conduit.List()
 import Data.Conduit.Combinators()
 
 import OpDesign.OrderBookStream (orderBookStream)
+import OpDesign.OrderBook (tickFields)
 
 testInputData :: [String]
 testInputData = lines "\
@@ -43,7 +44,7 @@ spec = describe "Testing trading strategies" $ do
 
     context "with short test set" $
           it "should generate series of best order books" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream tzEST .| strategy .| sinkList)
+            runConduitPure ( yieldMany testInputData .| mapC (tickFields tzEST) .| orderBookStream .| strategy .| sinkList)
         `shouldBe` [
             OrderBook {date = (read "2014-10-28 11:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
             OrderBook {date = (read "2014-10-28 11:50:46" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Just $ Price 8945.0, askVolume = Just $ Volume 5},

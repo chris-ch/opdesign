@@ -56,7 +56,7 @@ spec = describe "Testing reading ticks using pipes" $ do
 
     context "inline test data" $
         it "should produce a list of orderbooks" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream tzUTC .| sinkList)
+            runConduitPure ( yieldMany testInputData .|  mapC (tickFields tzUTC) .| orderBookStream .| sinkList)
         `shouldBe` [
             OrderBook {date = (read "2014-10-28 06:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
             OrderBook {date = (read "2014-10-28 06:50:46" :: UTCTime), bidVolume = Just $ Volume 5, bidPrice = Just $ Price 8937.0, askPrice = Nothing, askVolume = Nothing},
@@ -73,17 +73,17 @@ spec = describe "Testing reading ticks using pipes" $ do
  
     context "checking valid orderbooks" $
         it "should produce a list of booleans" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream tzUTC .| mapC isValid .| sinkList)
+            runConduitPure ( yieldMany testInputData .| mapC (tickFields tzUTC) .| orderBookStream .| mapC isValid .| sinkList)
         `shouldBe` [False,False,True,True,True,True,True,True,True,True,True]
 
     context "midprices" $
         it "should produce a list of mid prices" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream tzUTC .| trfMidPrice .| sinkList)
+            runConduitPure ( yieldMany testInputData .| mapC (tickFields tzUTC) .| orderBookStream .| trfMidPrice .| sinkList)
         `shouldBe` [Nothing,Nothing,Just 8939,Just (17881 % 2),Just (35767 % 4),Just 8945,Just (17895 % 2),Just (17883 % 2),Just (17895 % 2),Just 8945,Just (35777 % 4)]
 
     context "minute sampling" $
         it "should produce a list of minute sampled orderbooks" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream tzEST .| trfSample .| sinkList)
+            runConduitPure ( yieldMany testInputData .| mapC (tickFields tzEST) .| orderBookStream .| trfSample .| sinkList)
         `shouldBe` [
             OrderBook {date = (read "2014-10-28 11:51:00" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
             OrderBook {date = (read "2014-10-28 11:53:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8945.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
@@ -95,7 +95,7 @@ spec = describe "Testing reading ticks using pipes" $ do
             sameMinute orderBook orderBookNext = extractMinute (date orderBook) == extractMinute (date orderBookNext)
         in
         it "should produce a list of grouped orderbooks" $
-            runConduitPure ( yieldMany testInputData .| orderBookStream tzEST .| groupBy sameMinute .| sinkList)
+            runConduitPure ( yieldMany testInputData .| mapC (tickFields tzEST) .| orderBookStream .| groupBy sameMinute .| sinkList)
         `shouldBe` [
             [
             OrderBook {date = (read "2014-10-28 11:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},

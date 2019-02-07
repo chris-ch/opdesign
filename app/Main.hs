@@ -17,10 +17,11 @@ import System.Console.CmdArgs (CmdArgs, def, help, opt, typ, argPos, cmdArgsMode
 import System.Console.CmdArgs.Explicit (Mode)
 
 import qualified Data.Conduit.Combinators as Cmb (print)
+import Conduit (mapC)
 
 import OpDesign.TicksReader (readTicks)
-import OpDesign.OrderBookStream (tickStream, orderBookStream)
-import OpDesign.OrderBook ()
+import OpDesign.OrderBookStream (tickSringStream, orderBookStream)
+import OpDesign.OrderBook (tickFields)
 
 -----------------------------------------------------------
 
@@ -39,7 +40,7 @@ opdesign = cmdArgsMode OpDesign{
 
 -----------------------------------------------------------
 outputStream :: TimeZone -> ConduitT ByteString Void (ResourceT IO) ()
-outputStream tz = tickStream .| orderBookStream tz .| Cmb.print
+outputStream tz = tickSringStream .| mapC (tickFields tz) .| orderBookStream .| Cmb.print
           
 -----------------------------------------------------------
 

@@ -1,8 +1,8 @@
 module OpDesign.OrderBook where
 
-import Prelude (Show, Semigroup, Maybe(..), Bool(..), String, Float, Eq, Rational, Int, Ord, Double)
+import Prelude (Show, Maybe(..), Bool(..), String, Float, Eq, Rational, Int, Ord, Double)
 import Prelude (truncate, head, read, show, otherwise, fst, map, error)
-import Prelude ((<>), ($), (==), (!!), (.), (++))
+import Prelude (($), (==), (!!), (.), (++))
 
 import Data.Time (UTCTime, TimeZone)
 import Data.Timezones.TZ (asUTC)
@@ -93,21 +93,18 @@ fromTickData tickData
         }
     | otherwise  = emptyOrderBook $ tickDate tickData
 
-updateOrderBookField :: Maybe a -> Maybe a -> Maybe a
-updateOrderBookField _ (Just newFieldValue) = Just newFieldValue
-updateOrderBookField (Just oldFieldValue) Nothing = Just oldFieldValue
-updateOrderBookField Nothing Nothing = Nothing
-
-updateOrderBook :: OrderBook -> OrderBook -> OrderBook
-updateOrderBook orderBook orderBookUpdate = OrderBook {
-    date = date orderBookUpdate,
-    bidVolume = updateOrderBookField (bidVolume orderBook) (bidVolume orderBookUpdate),
-    bidPrice = updateOrderBookField (bidPrice orderBook) (bidPrice orderBookUpdate),
-    askPrice = updateOrderBookField (askPrice orderBook) (askPrice orderBookUpdate),
-    askVolume = updateOrderBookField (askVolume orderBook) (askVolume orderBookUpdate)
-    }
-
-instance Semigroup OrderBook where
-    (<>) = updateOrderBook
+updateOrderBook :: OrderBook -> TickData -> OrderBook
+updateOrderBook orderBook tickData
+    | (tickType tickData == BestBid) = orderBook {
+            date = tickDate tickData,
+            bidVolume = Just $ volume tickData,
+            bidPrice = Just $ price tickData
+        }
+    | (tickType tickData == BestAsk) = orderBook {
+            date = tickDate tickData,
+            askVolume = Just $ volume tickData,
+            askPrice = Just $ price tickData
+        }
+    | otherwise  = orderBook
 
     

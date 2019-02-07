@@ -8,18 +8,21 @@ import qualified Data.Conduit.Text as CText (lines)
 
 import Data.List (dropWhileEnd)
 import Data.Text (unpack)
-import Data.Time (TimeZone)
+import Data.Time()
 import Data.ByteString (ByteString)
 import Data.Time (UTCTime(..), addUTCTime)
 import Data.Time.LocalTime (TimeOfDay(..), todMin, timeToTimeOfDay, timeOfDayToTime)
 import Data.Time.Calendar ()
 import Conduit ((.|))
-import Conduit (ConduitT, ResourceT, await)
+import Conduit (ConduitT, ResourceT, await, yield, evalStateC)
 import Conduit (mapC, decodeUtf8C, scanlC)
 import Conduit()
 import Data.Conduit.List (groupBy)
 
-import OpDesign.OrderBook (OrderBook(..), updateOrderBook, fromTickData, tickFields, fromPrice)
+import Control.Monad.State (get, put, lift)
+import Control.Monad.Trans.State.Strict (StateT)
+
+import OpDesign.OrderBook (OrderBook(..), TickData, updateOrderBook, fromTickData, fromPrice)
 
 scanl1C :: Monad m => (a -> a -> a) -> ConduitT a a m ()
 scanl1C f = await >>= maybe (return ()) (scanlC f)
@@ -28,16 +31,35 @@ scanl1C f = await >>= maybe (return ()) (scanlC f)
 dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
-tickStream :: ConduitT ByteString String (ResourceT IO) ()
-tickStream = decodeUtf8C
+tickSringStream :: ConduitT ByteString String (ResourceT IO) ()
+tickSringStream = decodeUtf8C
                 .| CText.lines
                 .| mapC unpack
                 .| mapC dos2unix
 
-orderBookStream :: Monad m => TimeZone -> ConduitT String OrderBook m ()
-orderBookStream tz = mapC (tickFields tz) .| mapC fromTickData .| scanl1C updateOrderBook
+type StateOrderBook = Maybe OrderBook
 
-trfMidPrice :: Monad m => ConduitT OrderBook (Maybe Rational) m ()
+orderBookStreamC :: (Monad m) => ConduitT TickData OrderBook (StateT StateOrderBook m) ()
+orderBookStreamC = do
+        input <- await
+        case input of
+            Nothing -> return ()
+            Just tick -> do
+                prevOrderBook <- lift get
+                let updatedOrderBook = makeOrderBook prevOrderBook tick
+                lift $ put (Just updatedOrderBook)
+                yield updatedOrderBook
+                orderBookStreamC
+   
+makeOrderBook :: (Maybe OrderBook) -> TickData -> OrderBook
+makeOrderBook mob t = case mob of
+    (Just ob) -> (updateOrderBook ob t)
+    Nothing -> (fromTickData t)
+
+orderBookStream :: (Monad m ) => ConduitT TickData OrderBook m ()
+orderBookStream = evalStateC Nothing orderBookStreamC
+
+trfMidPrice :: (Monad m ) => ConduitT OrderBook (Maybe Rational) m ()
 trfMidPrice = mapC midPrice
     where
         midPrice :: OrderBook -> Maybe Rational
