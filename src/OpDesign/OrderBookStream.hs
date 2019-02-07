@@ -22,7 +22,9 @@ import Data.Conduit.List (groupBy)
 import Control.Monad.State (get, put, lift)
 import Control.Monad.Trans.State.Strict (StateT)
 
-import OpDesign.OrderBook (OrderBook(..), TickData, updateOrderBook, fromTickData, fromPrice)
+import Data.Time (TimeZone)
+
+import OpDesign.OrderBook (OrderBook(..), TickData, updateOrderBook, fromTickData, fromPrice, parseTickData)
 
 scanl1C :: Monad m => (a -> a -> a) -> ConduitT a a m ()
 scanl1C f = await >>= maybe (return ()) (scanlC f)
@@ -36,6 +38,9 @@ tickSringStream = decodeUtf8C
                 .| CText.lines
                 .| mapC unpack
                 .| mapC dos2unix
+
+streamTickData :: (Monad m) => TimeZone -> ConduitT String TickData m ()
+streamTickData tz = mapC (parseTickData tz)
 
 type StateOrderBook = Maybe OrderBook
 

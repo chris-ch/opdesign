@@ -39,8 +39,8 @@ data TickData = TickData {
     flag :: String
     } deriving (Show)
 
-tickFields :: TimeZone -> String -> TickData
-tickFields tz line = TickData {
+parseTickData :: TimeZone -> String -> TickData
+parseTickData tz line = TickData {
     tickDate = fieldDate,
     tickType = fieldTickType,
     price = fieldPrice,
