@@ -18,6 +18,7 @@ import Conduit (ConduitT, ResourceT, await, yield, evalStateC)
 import Conduit (mapC, decodeUtf8C, scanlC)
 import Conduit()
 import Data.Conduit.List (groupBy)
+import Conduit (MonadThrow)
 
 import Control.Monad.State (get, put, lift)
 import Control.Monad.Trans.State.Strict (StateT)
@@ -33,8 +34,8 @@ scanl1C f = await >>= maybe (return ()) (scanlC f)
 dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
-tickSringStream :: ConduitT ByteString String (ResourceT IO) ()
-tickSringStream = decodeUtf8C
+streamTickString :: (MonadThrow m) => ConduitT ByteString String m ()
+streamTickString = decodeUtf8C
                 .| CText.lines
                 .| mapC unpack
                 .| mapC dos2unix
@@ -44,8 +45,8 @@ streamTickData tz = mapC (parseTickData tz)
 
 type StateOrderBook = Maybe OrderBook
 
-orderBookStreamC :: (Monad m) => ConduitT TickData OrderBook (StateT StateOrderBook m) ()
-orderBookStreamC = do
+streamOrderBookC :: (Monad m) => ConduitT TickData OrderBook (StateT StateOrderBook m) ()
+streamOrderBookC = do
         input <- await
         case input of
             Nothing -> return ()
@@ -54,15 +55,15 @@ orderBookStreamC = do
                 let updatedOrderBook = makeOrderBook prevOrderBook tick
                 lift $ put (Just updatedOrderBook)
                 yield updatedOrderBook
-                orderBookStreamC
+                streamOrderBookC
    
 makeOrderBook :: (Maybe OrderBook) -> TickData -> OrderBook
 makeOrderBook mob t = case mob of
     (Just ob) -> (updateOrderBook ob t)
     Nothing -> (fromTickData t)
 
-orderBookStream :: (Monad m ) => ConduitT TickData OrderBook m ()
-orderBookStream = evalStateC Nothing orderBookStreamC
+streamOrderBook :: (Monad m ) => ConduitT TickData OrderBook m ()
+streamOrderBook = evalStateC Nothing streamOrderBookC
 
 trfMidPrice :: (Monad m ) => ConduitT OrderBook (Maybe Rational) m ()
 trfMidPrice = mapC midPrice

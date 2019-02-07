@@ -2,7 +2,7 @@ module OpDesign.TradingStrategySpec where
 
 import Prelude (String, Monad, Maybe(..))
 import Prelude (read, lines)
-import Prelude (($))
+import Prelude (($), (<$>), (<*>))
 
 import SpecHelper
 
@@ -15,7 +15,9 @@ import Conduit ((.|))
 import Data.Conduit.List()
 import Data.Conduit.Combinators()
 
-import OpDesign.OrderBookStream (orderBookStream, streamTickData)
+import qualified Conduit as DC (ZipSource(..), getZipSource)
+
+import OpDesign.OrderBookStream (streamOrderBook, streamTickData, trfSample)
 
 testInputData1 :: [String]
 testInputData1 = lines "\
@@ -32,18 +34,42 @@ testInputData1 = lines "\
 \2014-10-28 06:53:05.000000,BEST_BID,8938.5,8.0,S\n\
 \"
 
+testInputData2 :: [String]
+testInputData2 = lines "\
+\2014-10-28 06:49:10.000000,BEST_BID,89.38,100.0,S\n\
+\2014-10-28 06:51:32.000000,BEST_ASK,89.45,35.0,S\n\
+\2014-10-28 06:51:24.000000,BEST_ASK,89.41,14.0,S\n\
+\2014-10-28 06:51:29.000000,BEST_BID,89.40,121.0,S\n\
+\2014-10-28 06:52:20.000000,BEST_ASK,89.43,23.0,S\n\
+\2014-10-28 06:52:41.000000,BEST_ASK,89.50,65.0,S\n\
+\2014-10-28 06:52:26.000000,BEST_BID,89.45,62.0,S\n\
+\2014-10-28 06:52:41.000000,BEST_BID,89.33,140.0,S\n\
+\2014-10-28 06:52:46.000000,BEST_BID,89.45,220.0,S\n\
+\2014-10-28 06:53:14.000000,BEST_BID,89.40,60.0,S\n\
+\2014-10-28 06:53:25.000000,BEST_BID,89.38,78.0,S\n\
+\"
+
 processOrderBook :: OrderBook -> OrderBook
 processOrderBook orderBook = orderBook
 
-strategy :: Monad m => ConduitT OrderBook OrderBook m ()
-strategy = mapC processOrderBook
+screener :: Monad m => ConduitT () OrderBook m () -> ConduitT () OrderBook m () -> ConduitT () (OrderBook, OrderBook) m ()
+screener stream1 stream2 = DC.getZipSource $ func <$> DC.ZipSource stream1 <*> DC.ZipSource stream2
+    where
+        func a b = (a, b)
+
+--DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
+--joined :: (Monad m) => ConduitT () (Int, Int) m ()
+--joined = DC.getZipSource $ (,) <$> DC.ZipSource input <*> DC.ZipSource (yield 0 >> input .| sliding2 .| mapC diff)
+
+passThrough :: Monad m => ConduitT OrderBook OrderBook m ()
+passThrough = mapC processOrderBook
 
 spec :: Spec
 spec = describe "Testing trading strategies" $ do
 
     context "with short test set" $
-          it "should generate series of best order books" $
-            runConduitPure ( yieldMany testInputData1 .| streamTickData tzEST .| orderBookStream .| strategy .| sinkList)
+        it "should generate series of best order books" $
+            runConduitPure ( yieldMany testInputData1 .| streamTickData tzEST .| streamOrderBook .| passThrough .| sinkList)
         `shouldBe` [
             OrderBook {date = (read "2014-10-28 11:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
             OrderBook {date = (read "2014-10-28 11:50:46" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Just $ Price 8945.0, askVolume = Just $ Volume 5},
@@ -57,3 +83,21 @@ spec = describe "Testing trading strategies" $ do
             OrderBook {date = (read "2014-10-28 11:53:04" :: UTCTime), bidVolume = Just $ Volume 6, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
             OrderBook {date = (read "2014-10-28 11:53:05" :: UTCTime), bidVolume = Just $ Volume 8, bidPrice = Just $ Price 8938.5, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5}
         ]
+
+    context "with screener" $
+        let
+            product1 =  (yieldMany testInputData1 .| streamTickData tzEST .| streamOrderBook .| trfSample)
+            product2 =  (yieldMany testInputData2 .| streamTickData tzEST .| streamOrderBook .| trfSample)
+        in
+        it "should multiplex order books" $
+            runConduitPure ( screener product1 product2 .| sinkList)
+        `shouldBe` [
+            (
+                OrderBook {date = (read "2014-10-28 11:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
+                OrderBook {date = (read "2014-10-28 11:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing}
+            ),
+            (
+                OrderBook {date = (read "2014-10-28 11:50:46" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Just $ Price 8945.0, askVolume = Just $ Volume 5},
+                OrderBook {date = (read "2014-10-28 11:50:46" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Just $ Price 8945.0, askVolume = Just $ Volume 5}
+            )
+            ]

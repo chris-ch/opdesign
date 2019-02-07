@@ -19,7 +19,7 @@ import System.Console.CmdArgs.Explicit (Mode)
 import qualified Data.Conduit.Combinators as Cmb (print)
 
 import OpDesign.TicksReader (readTicks)
-import OpDesign.OrderBookStream (tickSringStream, orderBookStream, streamTickData)
+import OpDesign.OrderBookStream (streamTickString, streamOrderBook, streamTickData)
 
 -----------------------------------------------------------
 
@@ -38,7 +38,7 @@ opdesign = cmdArgsMode OpDesign{
 
 -----------------------------------------------------------
 outputStream :: TimeZone -> ConduitT ByteString Void (ResourceT IO) ()
-outputStream tz = tickSringStream .| streamTickData tz .| orderBookStream .| Cmb.print
+outputStream tz = streamTickString .| streamTickData tz .| streamOrderBook .| Cmb.print
           
 -----------------------------------------------------------
 
