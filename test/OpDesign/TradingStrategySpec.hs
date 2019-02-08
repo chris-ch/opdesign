@@ -98,7 +98,7 @@ testPartialOB strDate vb pb pa va = OrderBook {date = (read strDate :: UTCTime),
 spec :: Spec
 spec = describe "Testing trading strategies" $ do
 
-    context "with short test set" $
+    context "with short test set 1" $
         it "should generate series of best order books" $
             runConduitPure ( yieldMany testInputData1 .| streamTickData tzEST .| streamOrderBook .| passThrough .| sinkList)
         `shouldBe` [
@@ -114,6 +114,23 @@ spec = describe "Testing trading strategies" $ do
             testOB "2014-10-28 11:53:04" 6  8940.0 8950.0 5,
             testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5
            ]
+
+    context "with short test set 2" $
+        it "should generate series of best order books" $
+            runConduitPure ( yieldMany testInputData2 .| streamTickData tzEST .| streamOrderBook .| passThrough .| sinkList)
+        `shouldBe` [
+            testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100),
+            testPartialOB "2014-10-28 11:51:32" Nothing Nothing (Just $ Price 24.45) (Just $ Volume 35),
+            testOB "2014-10-28 11:51:24" 14  24.39 24.45 35,
+            testOB "2014-10-28 11:51:29" 121 24.40 24.45 35,
+            testOB "2014-10-28 11:52:20" 121 24.40 24.43 23,
+            testOB "2014-10-28 11:52:41" 121 24.40 24.50 65,
+            testOB "2014-10-28 11:52:26" 62  24.45 24.50 65,
+            testOB "2014-10-28 11:52:41" 140 24.33 24.50 65,
+            testOB "2014-10-28 11:52:46" 220 24.45 24.50 65,
+            testOB "2014-10-28 11:53:14" 60  24.40 24.50 65,
+            testOB "2014-10-28 11:53:25" 78  24.38 24.50 65
+        ]
 
     context "with screener" $
         let
