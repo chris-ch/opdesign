@@ -44,8 +44,8 @@ testInputData2 = lines "\
 \2014-10-28 06:51:32.000000,BEST_ASK,24.45,35.0,S\n\
 \2014-10-28 06:51:24.000000,BEST_BID,24.39,14.0,S\n\
 \2014-10-28 06:51:29.000000,BEST_BID,24.40,121.0,S\n\
-\2014-10-28 06:52:20.000000,BEST_ASK,24.43,23.0,S\n\
-\2014-10-28 06:52:41.000000,BEST_ASK,24.50,65.0,S\n\
+\2014-10-28 06:51:40.000000,BEST_ASK,24.43,23.0,S\n\
+\2014-10-28 06:51:41.000000,BEST_ASK,24.50,65.0,S\n\
 \2014-10-28 06:52:26.000000,BEST_BID,24.45,62.0,S\n\
 \2014-10-28 06:52:41.000000,BEST_BID,24.33,140.0,S\n\
 \2014-10-28 06:52:46.000000,BEST_BID,24.45,220.0,S\n\
@@ -123,8 +123,8 @@ spec = describe "Testing trading strategies" $ do
             testPartialOB "2014-10-28 11:51:32" Nothing Nothing (Just $ Price 24.45) (Just $ Volume 35),
             testOB "2014-10-28 11:51:24" 14  24.39 24.45 35,
             testOB "2014-10-28 11:51:29" 121 24.40 24.45 35,
-            testOB "2014-10-28 11:52:20" 121 24.40 24.43 23,
-            testOB "2014-10-28 11:52:41" 121 24.40 24.50 65,
+            testOB "2014-10-28 11:51:40" 121 24.40 24.43 23,
+            testOB "2014-10-28 11:51:41" 121 24.40 24.50 65,
             testOB "2014-10-28 11:52:26" 62  24.45 24.50 65,
             testOB "2014-10-28 11:52:41" 140 24.33 24.50 65,
             testOB "2014-10-28 11:52:46" 220 24.45 24.50 65,
@@ -140,12 +140,25 @@ spec = describe "Testing trading strategies" $ do
         it "should multiplex order books" $
             runConduitPure ( screener product1 product2 .| sinkList)
         `shouldBe` [
-            (
-                OrderBook {date = (read "2014-10-28 11:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
-                OrderBook {date = (read "2014-10-28 11:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing}
-            ),
-            (
-                OrderBook {date = (read "2014-10-28 11:50:46" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Just $ Price 8945.0, askVolume = Just $ Volume 5},
-                OrderBook {date = (read "2014-10-28 11:50:46" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Just $ Price 8945.0, askVolume = Just $ Volume 5}
-            )
-            ]
+            ( emptyOrderBook (read "2014-10-28 11:49:10" :: UTCTime),                                             testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+            ( testPartialOB "2014-10-28 11:50:00" (Just $ Volume 10)  (Just $ Price 8938.0) Nothing Nothing,      testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+            ( testOB "2014-10-28 11:50:46" 10 8938.0 8945.0 5,                                                    testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+            ( testOB "2014-10-28 11:50:54" 10 8938.0 8941.0 4,                                                    testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testPartialOB "2014-10-28 11:51:32" Nothing Nothing (Just $ Price 24.45) (Just $ Volume 35)   ),
+            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:24" 14  24.39 24.45 35                                               ),
+            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:29" 121 24.40 24.45 35                                               ),
+            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:40" 121 24.40 24.43 23                                               ),
+            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:41" 121 24.40 24.50 65                                               ),
+            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:52:26" 62  24.45 24.50 65                                               ),
+            ( testOB "2014-10-28 11:52:41" 11 8940.0 8943.5 2,                                                    testOB "2014-10-28 11:52:41" 140 24.33 24.50 65                                               ),
+            ( testOB "2014-10-28 11:52:43" 11 8940.0 8950.0 5,                                                    testOB "2014-10-28 11:52:41" 140 24.33 24.50 65                                               ),
+            ( testOB "2014-10-28 11:52:43" 11 8940.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+            ( testOB "2014-10-28 11:52:48" 2  8945.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+            ( testOB "2014-10-28 11:52:52" 40 8933.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+            ( testOB "2014-10-28 11:52:56" 10 8945.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+            ( testOB "2014-10-28 11:53:04" 6  8940.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+            ( testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+            ( testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                    testOB "2014-10-28 11:53:14" 60  24.40 24.50 65                                               ),
+            ( testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                    testOB "2014-10-28 11:53:25" 78  24.38 24.50 65                                               )
+        ]
