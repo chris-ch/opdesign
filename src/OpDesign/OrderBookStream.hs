@@ -44,7 +44,6 @@ streamTickData :: (Monad m) => TimeZone -> ConduitT String TickData m ()
 streamTickData tz = mapC (parseTickData tz)
 
 type StateOrderBook = Maybe OrderBook
-
 streamOrderBookC :: (Monad m) => ConduitT TickData OrderBook (StateT StateOrderBook m) ()
 streamOrderBookC = do
         input <- await

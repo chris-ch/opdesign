@@ -1,8 +1,8 @@
 module OpDesign.TradingStrategySpec where
 
-import Prelude (String, Monad, Maybe(..))
-import Prelude (read, lines)
-import Prelude (($), (<$>), (<*>))
+import Prelude (String, Monad, Maybe(..), Int, Rational)
+import Prelude (read, lines, otherwise, return)
+import Prelude (($), (<$>), (<*>), (>), (&&), (<=))
 
 import SpecHelper
 
@@ -10,12 +10,16 @@ import Data.Timezones.TZ (tzEST)
 import Data.Time (UTCTime)
 import Conduit (ConduitT)
 import Conduit (yieldMany, runConduitPure,mapC, sinkList)
+import Conduit (ConduitT, ResourceT, await, yield, evalStateC)
 import Conduit ((.|))
 
 import Data.Conduit.List()
 import Data.Conduit.Combinators()
 
 import qualified Conduit as DC (ZipSource(..), getZipSource)
+
+import Control.Monad.State (get, put, lift)
+import Control.Monad.Trans.State.Strict (StateT)
 
 import OpDesign.OrderBookStream (streamOrderBook, streamTickData, trfSample)
 
@@ -36,33 +40,60 @@ testInputData1 = lines "\
 
 testInputData2 :: [String]
 testInputData2 = lines "\
-\2014-10-28 06:49:10.000000,BEST_BID,89.38,100.0,S\n\
-\2014-10-28 06:51:32.000000,BEST_ASK,89.45,35.0,S\n\
-\2014-10-28 06:51:24.000000,BEST_ASK,89.41,14.0,S\n\
-\2014-10-28 06:51:29.000000,BEST_BID,89.40,121.0,S\n\
-\2014-10-28 06:52:20.000000,BEST_ASK,89.43,23.0,S\n\
-\2014-10-28 06:52:41.000000,BEST_ASK,89.50,65.0,S\n\
-\2014-10-28 06:52:26.000000,BEST_BID,89.45,62.0,S\n\
-\2014-10-28 06:52:41.000000,BEST_BID,89.33,140.0,S\n\
-\2014-10-28 06:52:46.000000,BEST_BID,89.45,220.0,S\n\
-\2014-10-28 06:53:14.000000,BEST_BID,89.40,60.0,S\n\
-\2014-10-28 06:53:25.000000,BEST_BID,89.38,78.0,S\n\
+\2014-10-28 06:49:10.000000,BEST_ASK,24.48,100.0,S\n\
+\2014-10-28 06:51:32.000000,BEST_ASK,24.45,35.0,S\n\
+\2014-10-28 06:51:24.000000,BEST_BID,24.39,14.0,S\n\
+\2014-10-28 06:51:29.000000,BEST_BID,24.40,121.0,S\n\
+\2014-10-28 06:52:20.000000,BEST_ASK,24.43,23.0,S\n\
+\2014-10-28 06:52:41.000000,BEST_ASK,24.50,65.0,S\n\
+\2014-10-28 06:52:26.000000,BEST_BID,24.45,62.0,S\n\
+\2014-10-28 06:52:41.000000,BEST_BID,24.33,140.0,S\n\
+\2014-10-28 06:52:46.000000,BEST_BID,24.45,220.0,S\n\
+\2014-10-28 06:53:14.000000,BEST_BID,24.40,60.0,S\n\
+\2014-10-28 06:53:25.000000,BEST_BID,24.38,78.0,S\n\
 \"
 
 processOrderBook :: OrderBook -> OrderBook
 processOrderBook orderBook = orderBook
 
-screener :: Monad m => ConduitT () OrderBook m () -> ConduitT () OrderBook m () -> ConduitT () (OrderBook, OrderBook) m ()
+type OrderBookPair = (OrderBook, OrderBook)
+screener :: Monad m => ConduitT () OrderBook m () -> ConduitT () OrderBook m () -> ConduitT () OrderBookPair m ()
 screener stream1 stream2 = DC.getZipSource $ func <$> DC.ZipSource stream1 <*> DC.ZipSource stream2
     where
         func a b = (a, b)
 
---DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
---joined :: (Monad m) => ConduitT () (Int, Int) m ()
---joined = DC.getZipSource $ (,) <$> DC.ZipSource input <*> DC.ZipSource (yield 0 >> input .| sliding2 .| mapC diff)
+type StateScreen = Maybe OrderBookPair
+screenUpdaterC :: (Monad m) => ConduitT OrderBookPair OrderBookPair (StateT StateScreen m) ()
+screenUpdaterC = do
+        maybeInputPair <- await
+        case maybeInputPair of
+            Nothing -> return ()
+            Just inputPair -> do
+                prevPair <- lift get
+                let updatedPair = makeOrderBookPair prevPair inputPair
+                lift $ put (Just updatedPair)
+                yield updatedPair
+                screenUpdaterC
+
+makeOrderBookPair :: (Maybe OrderBookPair) -> OrderBookPair -> OrderBookPair
+makeOrderBookPair (Just (obPrev1, obPrev2)) (ob1, ob2)
+                    | date ob1 > date obPrev1 &&  date ob2 > date obPrev2 = (ob1, ob2)
+                    | date ob1 > date obPrev1 &&  date ob2 <= date obPrev2 = (ob1, obPrev2)
+                    | date ob1 <= date obPrev1 &&  date ob2 > date obPrev2 = (obPrev1, ob2)
+                    | otherwise = (obPrev1, obPrev2)
+makeOrderBookPair Nothing (ob1, ob2) = (ob1, ob2)
+
+screenUpdater :: (Monad m) => ConduitT OrderBookPair OrderBookPair m ()
+screenUpdater = evalStateC Nothing screenUpdaterC
 
 passThrough :: Monad m => ConduitT OrderBook OrderBook m ()
 passThrough = mapC processOrderBook
+
+testOB :: String -> Int -> Rational -> Rational -> Int -> OrderBook
+testOB strDate vb pb pa va = OrderBook {date = (read strDate :: UTCTime), bidVolume = Just $ Volume vb, bidPrice = Just $ Price pb, askPrice = Just $ Price pa, askVolume = Just $ Volume va}
+
+testPartialOB :: String -> Maybe Volume -> Maybe Price -> Maybe Price -> Maybe Volume -> OrderBook
+testPartialOB strDate vb pb pa va = OrderBook {date = (read strDate :: UTCTime), bidVolume = vb, bidPrice = pb, askPrice = pa, askVolume = va}
 
 spec :: Spec
 spec = describe "Testing trading strategies" $ do
@@ -71,18 +102,18 @@ spec = describe "Testing trading strategies" $ do
         it "should generate series of best order books" $
             runConduitPure ( yieldMany testInputData1 .| streamTickData tzEST .| streamOrderBook .| passThrough .| sinkList)
         `shouldBe` [
-            OrderBook {date = (read "2014-10-28 11:50:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
-            OrderBook {date = (read "2014-10-28 11:50:46" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Just $ Price 8945.0, askVolume = Just $ Volume 5},
-            OrderBook {date = (read "2014-10-28 11:50:54" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
-            OrderBook {date = (read "2014-10-28 11:50:56" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
-            OrderBook {date = (read "2014-10-28 11:52:41" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8943.5, askVolume = Just $ Volume 2},
-            OrderBook {date = (read "2014-10-28 11:52:43" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
-            OrderBook {date = (read "2014-10-28 11:52:48" :: UTCTime), bidVolume = Just $ Volume 2, bidPrice = Just $ Price 8945.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
-            OrderBook {date = (read "2014-10-28 11:52:52" :: UTCTime), bidVolume = Just $ Volume 40, bidPrice = Just $ Price 8933.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
-            OrderBook {date = (read "2014-10-28 11:52:56" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8945.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
-            OrderBook {date = (read "2014-10-28 11:53:04" :: UTCTime), bidVolume = Just $ Volume 6, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
-            OrderBook {date = (read "2014-10-28 11:53:05" :: UTCTime), bidVolume = Just $ Volume 8, bidPrice = Just $ Price 8938.5, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5}
-        ]
+            testPartialOB "2014-10-28 11:50:00" (Just $ Volume 10)  (Just $ Price 8938.0) Nothing Nothing,
+            testOB "2014-10-28 11:50:46" 10 8938.0 8945.0 5,
+            testOB "2014-10-28 11:50:54" 10 8938.0 8941.0 4,
+            testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,
+            testOB "2014-10-28 11:52:41" 11 8940.0 8943.5 2,
+            testOB "2014-10-28 11:52:43" 11 8940.0 8950.0 5,
+            testOB "2014-10-28 11:52:48" 2  8945.0 8950.0 5,
+            testOB "2014-10-28 11:52:52" 40 8933.0 8950.0 5,
+            testOB "2014-10-28 11:52:56" 10 8945.0 8950.0 5,
+            testOB "2014-10-28 11:53:04" 6  8940.0 8950.0 5,
+            testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5
+           ]
 
     context "with screener" $
         let
