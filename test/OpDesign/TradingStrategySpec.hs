@@ -10,7 +10,7 @@ import Data.Timezones.TZ (tzEST)
 import Data.Time (UTCTime)
 import Conduit (ConduitT)
 import Conduit (yieldMany, runConduitPure,mapC, sinkList)
-import Conduit (ConduitT, ResourceT, await, yield, evalStateC)
+import Conduit (await, yield, evalStateC)
 import Conduit ((.|))
 
 import Data.Conduit.List()
@@ -57,9 +57,10 @@ processOrderBook :: OrderBook -> OrderBook
 processOrderBook orderBook = orderBook
 
 type OrderBookPair = (OrderBook, OrderBook)
-screener :: Monad m => ConduitT () OrderBook m () -> ConduitT () OrderBook m () -> ConduitT () OrderBookPair m ()
-screener stream1 stream2 = DC.getZipSource $ func <$> DC.ZipSource stream1 <*> DC.ZipSource stream2
+zipper :: Monad m => ConduitT () OrderBook m () -> ConduitT () OrderBook m () -> ConduitT () OrderBookPair m ()
+zipper stream1 stream2 = DC.getZipSource $ func <$> DC.ZipSource stream1 <*> DC.ZipSource stream2
     where
+        -- add state here
         func a b = (a, b)
 
 type StateScreen = Maybe OrderBookPair
@@ -132,33 +133,33 @@ spec = describe "Testing trading strategies" $ do
             testOB "2014-10-28 11:53:25" 78  24.38 24.50 65
         ]
 
-    context "with screener" $
-        let
-            product1 =  (yieldMany testInputData1 .| streamTickData tzEST .| streamOrderBook .| trfSample)
-            product2 =  (yieldMany testInputData2 .| streamTickData tzEST .| streamOrderBook .| trfSample)
-        in
-        it "should multiplex order books" $
-            runConduitPure ( screener product1 product2 .| sinkList)
-        `shouldBe` [
-            ( emptyOrderBook (read "2014-10-28 11:49:10" :: UTCTime),                                             testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
-            ( testPartialOB "2014-10-28 11:50:00" (Just $ Volume 10)  (Just $ Price 8938.0) Nothing Nothing,      testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
-            ( testOB "2014-10-28 11:50:46" 10 8938.0 8945.0 5,                                                    testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
-            ( testOB "2014-10-28 11:50:54" 10 8938.0 8941.0 4,                                                    testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
-            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
-            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testPartialOB "2014-10-28 11:51:32" Nothing Nothing (Just $ Price 24.45) (Just $ Volume 35)   ),
-            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:24" 14  24.39 24.45 35                                               ),
-            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:29" 121 24.40 24.45 35                                               ),
-            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:40" 121 24.40 24.43 23                                               ),
-            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:41" 121 24.40 24.50 65                                               ),
-            ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:52:26" 62  24.45 24.50 65                                               ),
-            ( testOB "2014-10-28 11:52:41" 11 8940.0 8943.5 2,                                                    testOB "2014-10-28 11:52:41" 140 24.33 24.50 65                                               ),
-            ( testOB "2014-10-28 11:52:43" 11 8940.0 8950.0 5,                                                    testOB "2014-10-28 11:52:41" 140 24.33 24.50 65                                               ),
-            ( testOB "2014-10-28 11:52:43" 11 8940.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
-            ( testOB "2014-10-28 11:52:48" 2  8945.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
-            ( testOB "2014-10-28 11:52:52" 40 8933.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
-            ( testOB "2014-10-28 11:52:56" 10 8945.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
-            ( testOB "2014-10-28 11:53:04" 6  8940.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
-            ( testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
-            ( testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                    testOB "2014-10-28 11:53:14" 60  24.40 24.50 65                                               ),
-            ( testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                    testOB "2014-10-28 11:53:25" 78  24.38 24.50 65                                               )
-        ]
+    -- context "with screener" $
+    --     let
+    --         product1 =  (yieldMany testInputData1 .| streamTickData tzEST .| streamOrderBook)
+    --         product2 =  (yieldMany testInputData2 .| streamTickData tzEST .| streamOrderBook)
+    --     in
+    --     it "should multiplex order books" $
+    --         runConduitPure ( zipper product1 product2 .| screenUpdater .| sinkList)
+    --     `shouldBe` [
+    --         ( emptyOrderBook (read "2014-10-28 11:49:10" :: UTCTime),                                             testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+    --         ( testPartialOB "2014-10-28 11:50:00" (Just $ Volume 10)  (Just $ Price 8938.0) Nothing Nothing,      testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+    --         ( testOB "2014-10-28 11:50:46" 10 8938.0 8945.0 5,                                                    testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+    --         ( testOB "2014-10-28 11:50:54" 10 8938.0 8941.0 4,                                                    testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+    --         ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
+    --         ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testPartialOB "2014-10-28 11:51:32" Nothing Nothing (Just $ Price 24.45) (Just $ Volume 35)   ),
+    --         ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:24" 14  24.39 24.45 35                                               ),
+    --         ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:29" 121 24.40 24.45 35                                               ),
+    --         ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:40" 121 24.40 24.43 23                                               ),
+    --         ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:51:41" 121 24.40 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                    testOB "2014-10-28 11:52:26" 62  24.45 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:52:41" 11 8940.0 8943.5 2,                                                    testOB "2014-10-28 11:52:41" 140 24.33 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:52:43" 11 8940.0 8950.0 5,                                                    testOB "2014-10-28 11:52:41" 140 24.33 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:52:43" 11 8940.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:52:48" 2  8945.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:52:52" 40 8933.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:52:56" 10 8945.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:53:04" 6  8940.0 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                    testOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                    testOB "2014-10-28 11:53:14" 60  24.40 24.50 65                                               ),
+    --         ( testOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                    testOB "2014-10-28 11:53:25" 78  24.38 24.50 65                                               )
+    --     ]

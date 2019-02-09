@@ -1,6 +1,6 @@
 module OpDesign.OrderBookStream where
 
-import Prelude (Monad, Maybe(..), Rational, String, IO, Int)
+import Prelude (Monad, Maybe(..), Rational, String, Int)
 import Prelude (return, maybe, last)
 import Prelude ((.), ($), (==), (>>=), (+), (/))
 
@@ -14,7 +14,7 @@ import Data.Time (UTCTime(..), addUTCTime)
 import Data.Time.LocalTime (TimeOfDay(..), todMin, timeToTimeOfDay, timeOfDayToTime)
 import Data.Time.Calendar ()
 import Conduit ((.|))
-import Conduit (ConduitT, ResourceT, await, yield, evalStateC)
+import Conduit (ConduitT, await, yield, evalStateC)
 import Conduit (mapC, decodeUtf8C, scanlC)
 import Conduit()
 import Data.Conduit.List (groupBy)

@@ -5,7 +5,7 @@ import Prelude (replicate, pi, round, cycle, fromIntegral, fromInteger, sin, ret
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 
 import Conduit (ConduitT, Identity)
-import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await)
+import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, mergeSource)
 import Conduit ((.|))
 import Data.Conduit.List (groupBy)
 
@@ -110,3 +110,7 @@ genRandom (bottom, top) seed = yieldMany (randomRs (bottom, top) (mkStdGen seed)
 
 tfGroupBy :: (a -> a -> Bool) -> Transfer a [a]
 tfGroupBy = groupBy
+
+-- merging source into conduit
+testMergeSource :: (Monad m) => ConduitT () i m ()  -> ConduitT a (i, a) m ()
+testMergeSource = mergeSource
