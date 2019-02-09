@@ -1,14 +1,11 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 module OpDesign.SignalProcessingSpec where
 
 import SpecHelper
 
-import Prelude (Maybe(..), Int, Integer, Rational, Monad, Num, Ord)
-import Prelude (zipWith, drop, maybe, return, otherwise, fmap, error)
-import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=), (==), (<=), (.), (=<<) )
-import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift, foldM)
+import Prelude (Maybe(..), Int, Integer, Rational, Monad, Num)
+import Prelude (zipWith, drop, maybe, return)
+import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=), (==))
+import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
 
 import Data.Void()
 import Conduit (ConduitT)
@@ -24,56 +21,6 @@ import Data.Conduit.Combinators()
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
 import OpDesign.SignalProcessing (Signal, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, genRandom, tfGroupBy)
-
-import qualified Data.Conduit.Internal as CI
-import qualified Data.PQueue.Prio.Min as PQ
-
--- | Merge a list of sorted sources to produce a single (sorted) source
---
--- This takes a list of sorted sources and produces a 'C.Source' which outputs
--- all elements in sorted order.
---
--- See 'mergeC2'
-mergeC :: (Ord a, Monad m) => [ConduitT () a m ()] -> ConduitT () a m ()
-mergeC [a] = a
-mergeC [a,b] = mergeC2 a b
-mergeC cs = CI.ConduitT $ \rest -> let
-        go q = case PQ.minView q of
-            Nothing -> rest()
-            Just (CI.HaveOutput c_next v, q') -> CI.HaveOutput (norm1insert q' c_next >>= go)  v
-            _ -> error "This situation should have been impossible (mergeC/go)"
-        norm1insert :: (Monad m, Ord o) => PQ.MinPQueue o (CI.Pipe () i o () m ()) -> CI.Pipe () i o () m () -> CI.Pipe () i o () m (PQ.MinPQueue o (CI.Pipe () i o () m ()))
-        norm1insert q c@(CI.HaveOutput _ v) = return (PQ.insert v c q)
-        norm1insert q CI.Done{} = return q
-        norm1insert q (CI.PipeM p) = lift p >>= norm1insert q
-        norm1insert q (CI.NeedInput _ next) = norm1insert q (next ())
-        norm1insert q (CI.Leftover next ()) = norm1insert q next
-    in do
-        let st = fmap (($ CI.Done) . CI.unConduitT) cs
-        go =<< foldM norm1insert PQ.empty st
-
--- | Take two sorted sources and merge them.
---
--- See 'mergeC'
-mergeC2 :: (Ord a, Monad m) => ConduitT () a m () -> ConduitT () a m () -> ConduitT () a m ()
-mergeC2 (CI.ConduitT s1) (CI.ConduitT s2) = CI.ConduitT $ \rest -> let
-        go right@(CI.HaveOutput s1' v1) left@(CI.HaveOutput s2' v2)
-            | v1 <= v2 = CI.HaveOutput (go s1' left) v1
-            | otherwise = CI.HaveOutput (go right s2') v2
-        go right@CI.Done{} (CI.HaveOutput s v) = CI.HaveOutput (go right s) v
-        go (CI.HaveOutput s v) left@CI.Done{}  = CI.HaveOutput (go s left)  v
-        go CI.Done{} CI.Done{} = rest ()
-        go (CI.PipeM p) left = do
-            next <- lift p
-            go next left
-        go right (CI.PipeM p) = do
-            next <- lift p
-            go right next
-        go (CI.NeedInput _ next) left = go (next ()) left
-        go right (CI.NeedInput _ next) = go right (next ())
-        go (CI.Leftover next ()) left = go next left
-        go right (CI.Leftover next ()) = go right next
-    in go (s1 CI.Done) (s2 CI.Done)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -327,12 +274,3 @@ spec = describe "Testing signal processing operators" $ do
         it "should generate predicted int sequence" $ do
             x <- (runConduit (genRandom (40, 50) 2 .| takeC 10 .| sinkList))
             x `shouldBe` expected
-
-    context "merging source (assumes both are monotonic)" $
-        let
-            naturals1 = yieldMany [10, 20, 30, 40, 50, 60, 70, -10, -20, -10 :: Int]
-            naturals2 = yieldMany [1, 2, 3, 4, 5 :: Int]
-        in
-        it "should zip 2 sources" $
-            runConduitPure ( mergeC2 naturals1 naturals2 .| takeC 100 .| sinkList )
-            `shouldBe` [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, -10, -20, -10]
