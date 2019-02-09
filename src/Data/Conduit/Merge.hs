@@ -12,11 +12,12 @@ import qualified Data.Conduit.Internal as CI
 mergeC2 :: (Monad m) => (a -> a -> Bool) -> ConduitT () a m () -> ConduitT () a m () -> ConduitT () a m ()
 mergeC2 comparator (CI.ConduitT s1) (CI.ConduitT s2) = CI.ConduitT $  processMergeC2 comparator s1 s2
 
+-- newtype SealedConduitT i o m r = SealedConduitT (Pipe i i o () m r)
 processMergeC2 :: Monad m => (a -> a -> Bool)
-                        -> ((r -> CI.Pipe () i1 a () m r) -> CI.Pipe () i2 a () m r) -- s1
-                        -> ((r -> CI.Pipe () i3 a () m r) -> CI.Pipe () i4 a () m r) -- s2
-                        -> (() -> CI.Pipe () i5 a () m r5) -- rest
-                        -> CI.Pipe () i5 a () m r5
+                        -> ((r -> CI.Pipe () () a () m r) -> CI.Pipe () () a () m r) -- s1
+                        -> ((r -> CI.Pipe () () a () m r) -> CI.Pipe () () a () m r) -- s2
+                        -> (() -> CI.Pipe () i a () m r0) -- rest
+                        -> CI.Pipe () i a () m r0
 processMergeC2 comparator s1 s2 rest = let
         go right@(CI.HaveOutput s1' v1) left@(CI.HaveOutput s2' v2)
             | comparator v1 v2 = CI.HaveOutput (go s1' left) v1
