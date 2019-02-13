@@ -8,7 +8,7 @@ import Conduit (ConduitT)
 import qualified Data.Conduit.Internal as CI
 
 -- | Takes two monotonic sources and merges them.
---
+-- This comes from https://github.com/luispedro/conduit-algorithms made available thanks to Luis Pedro Coelho.
 mergeC2 :: (Monad m) => (a -> a -> Bool) -> ConduitT () a m () -> ConduitT () a m () -> ConduitT () a m ()
 mergeC2 comparator (CI.ConduitT s1) (CI.ConduitT s2) = CI.ConduitT $  processMergeC2 comparator s1 s2
 
