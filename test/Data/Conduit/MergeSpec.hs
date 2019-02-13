@@ -10,7 +10,10 @@ import Conduit (yieldMany, runConduitPure, takeC, mapC)
 import Conduit (sinkList)
 import Conduit ((.|))
 import Data.Conduit.Internal (zipSources)
---import Data.Conduit.Algorithms (mergeC2)
+
+import Control.Monad.State (get, put, lift)
+import Control.Monad.Trans.State.Strict (StateT)
+import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, mergeSource)
 
 import Data.Conduit.Merge (mergeC2) --, zipC2)
 
@@ -61,5 +64,62 @@ mergeTag func series1 series2 = mergeC2 (tagSort func) taggedSeries1 taggedSerie
 tagSort :: (a -> a -> Bool) -> TaggedItem a -> TaggedItem a -> Bool
 tagSort func (TaggedItem tag1 item1) (TaggedItem tag2 item2) = func item1 item2
 
-pairTag :: (Monad m) => ConduitT  (TaggedItem a) (Maybe a, Maybe a) m ()
-pairTag = yieldMany [(Nothing, Nothing)]
+type StateMergePair a = (Maybe a, Maybe a)
+pairTagC :: (Monad m) => ConduitT  (TaggedItem a) (StateMergePair a) (StateT (StateMergePair a) m) ()
+pairTagC = do
+    input <- await
+    case input of
+        Nothing -> return ()
+        Just taggedItem -> do
+            stateMergePair <- lift get
+            let outputState = updateStateMergePair taggedItem stateMergePair
+            lift $ put outputState
+            yield outputState -- put logic here
+            pairTagC
+
+updateStateMergePair :: TaggedItem a -> StateMergePair a -> StateMergePair a
+updateStateMergePair (TaggedItem tag item) (Just leftItem, Just rightItem) = case tag of
+    LeftItem -> (Just item, Just rightItem)
+    RightItem -> (Just leftItem, Just item)
+
+updateStateMergePair (TaggedItem tag item) (Nothing, Just rightItem) = case tag of
+    LeftItem -> (Just item, Just rightItem)
+    RightItem -> (Nothing, Just item)
+
+updateStateMergePair (TaggedItem tag item) (Just leftItem, Nothing) = case tag of
+    LeftItem -> (Just item, Nothing)
+    RightItem -> (Just leftItem, Just item)
+
+updateStateMergePair (TaggedItem tag item) (Nothing, Nothing) = case tag of
+    LeftItem -> (Just item, Nothing)
+    RightItem -> (Nothing, Just item)
+
+pairTag :: (Monad m) => ConduitT  (TaggedItem a) (StateMergePair a) m ()
+pairTag = evalStateC (Nothing, Nothing) pairTagC
+
+
+-- Just x -> do
+--     (prevInputs, prevOutputs) <- lift get :: (Monad m) => ConduitT Rational Rational (StateT StateIIR m) StateIIR
+--     let inputs = x : remainder where remainder = init prevInputs
+--     let y = sum (zipWith (*) inputs coeffsIn) + sum (zipWith (*) prevOutputs coeffsOut)
+--     let outputs = y : remainder where remainder = init prevOutputs
+--     lift $ put (inputs, outputs)
+--     yield y
+--     filterIIRC coeffsIn coeffsOut
+
+
+-- type StateIntegrator = (Rational, Rational)
+-- integratorC :: (Monad m) => ConduitT Rational Rational (StateT StateIntegrator m) ()
+-- integratorC = do
+--         input <- await
+--         case input of
+--             Nothing -> return ()
+--             Just x1 -> do
+--                 (y0, x0) <- lift get
+--                 let y1 = y0 + (x1 + x0) / 2
+--                 lift $ put (y1, x1)
+--                 yield y1
+--                 integratorC
+
+-- tfIntegrate :: Rational -> Transfer Rational Rational
+-- tfIntegrate initial = evalStateC (initial, initial) integratorC

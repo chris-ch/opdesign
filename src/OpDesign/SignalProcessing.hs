@@ -65,7 +65,6 @@ opMul :: (Num a) => Signal a -> Signal a -> Signal a
 opMul input1 input2 = operator (*) input1 input2
 
 type StateIntegrator = (Rational, Rational)
-
 integratorC :: (Monad m) => ConduitT Rational Rational (StateT StateIntegrator m) ()
 integratorC = do
         input <- await
