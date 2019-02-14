@@ -21,7 +21,7 @@ import qualified Conduit as DC (ZipSource(..), getZipSource)
 import Control.Monad.State (get, put, lift)
 import Control.Monad.Trans.State.Strict (StateT)
 
-import OpDesign.OrderBookStream (streamOrderBook, streamTickData, trfSample)
+import OpDesign.OrderBookStream (streamOrderBook, streamTickData)
 
 testInputData1 :: [String]
 testInputData1 = lines "\
