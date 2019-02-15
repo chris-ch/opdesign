@@ -1,7 +1,7 @@
 module OpDesign.OrderBookStream where
 
-import Prelude (Monad, Maybe(..), Rational, String, Int)
-import Prelude (return, maybe, last)
+import Prelude (Monad, Maybe(..), Rational, String, Int, Num)
+import Prelude (return, maybe, last, read)
 import Prelude ((.), ($), (==), (>>=), (+), (/))
 
 import qualified Data.Conduit.Text as CText (lines)
@@ -14,13 +14,13 @@ import Data.Time (UTCTime(..), addUTCTime)
 import Data.Time.LocalTime (TimeOfDay(..), todMin, timeToTimeOfDay, timeOfDayToTime)
 import Data.Time.Calendar ()
 import Conduit ((.|))
-import Conduit (ConduitT, await, yield, evalStateC)
+import Conduit (ConduitT, await, yield, evalStateC, yieldMany)
 import Conduit (mapC, decodeUtf8C, scanlC)
 import Conduit()
 import Data.Conduit.List (groupBy)
 import Conduit (MonadThrow)
 
-import Control.Monad.State (get, put, lift)
+import Control.Monad.State (get, put, lift, modify, forever, MonadState)
 import Control.Monad.Trans.State.Strict (StateT)
 
 import Data.Time (TimeZone)
@@ -94,3 +94,36 @@ ceilingMinute time = UTCTime (utctDay time') (timeOfDayToTime (TimeOfDay hour mi
         time' :: UTCTime
         time' = plusOneMin time
         (TimeOfDay hour minute _) = timeToTimeOfDay (utctDayTime time')
+
+data SequencerPeriod = Second | Minute | Hour | Day
+-- sequencer :: (Monad m) => SequencerPeriod -> UTCTime -> UTCTime -> ConduitT () UTCTime m ()
+-- sequencer = 
+
+sequencerC :: (MonadState UTCTime m) => ConduitT Int UTCTime m ()
+sequencerC = do
+    x0 <-  await
+    case x0 of
+        Nothing -> return ()
+        Just _ -> do
+            lift $ modify (addUTCTime 1)
+            r <- lift get
+            yield r
+            sequencerC
+
+--sequencer :: (MonadState UTCTime m) => ConduitT Int UTCTime m ()
+--sequencer = yieldMany [0, 0, 0, 0 :: Int] .| evalStateC (read "2014-10-28 06:50:00" :: UTCTime) sequencerC
+
+-- counterC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
+-- counterC = do
+--         x0 <-  await
+--         case x0 of
+--             Nothing -> return ()
+--             Just _ -> do
+--                 lift $ modify (+1)
+--                 r <- lift get
+--                 yield r
+--                 counterC
+
+-- tfCounter :: (Num a) => Integer -> Transfer a Integer
+-- tfCounter start = evalStateC start counterC
+    

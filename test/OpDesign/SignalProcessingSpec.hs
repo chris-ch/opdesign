@@ -2,14 +2,14 @@ module OpDesign.SignalProcessingSpec where
 
 import SpecHelper
 
-import Prelude (Maybe(..), Int, Integer, Rational, Monad, Num)
+import Prelude (Int, Integer, Rational, Monad)
 import Prelude (zipWith, drop, maybe, return)
 import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=), (==))
-import Control.Monad.State (MonadState, State, evalState, get, put, modify, lift)
+import Control.Monad.State (State, evalState, get, put)
 
 import Data.Void()
 import Conduit (ConduitT)
-import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, evalStateC)
+import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC)
 import Conduit (await, scanlC, foldlC, dropC, slidingWindowC, sinkList)
 import Conduit ((.|))
 
@@ -20,7 +20,7 @@ import Data.Conduit.List()
 import Data.Conduit.Combinators()
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, genRandom, tfGroupBy)
+import OpDesign.SignalProcessing (Signal, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, genRandom, tfGroupBy, tfCounter, genSequence)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -212,23 +212,11 @@ spec = describe "Testing signal processing operators" $ do
         let
             input :: (Monad m) => ConduitT () Int m ()
             input = yieldMany [1, 1, 1, 1, 1, 1, 1, 1]
-
-            counterC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
-            counterC = do
-                    x0 <-  await
-                    case x0 of
-                        Nothing -> return ()
-                        Just _ -> do
-                            lift $ modify (+1)
-                            r <- lift get
-                            yield r
-                            counterC
-
             expected = [1, 2, 3, 4, 5, 6, 7, 8]
         in
-        it "shows result according to state" $ do
-            res <- (runConduit ( input .| evalStateC (0 :: Integer) counterC .| sinkList ))
-            res `shouldBe` expected
+        it "shows result according to state" $
+            (runConduitPure ( input .| tfCounter 0 .| sinkList ))
+        `shouldBe` expected
 
     context "Integrator using State and Conduit" $
         let
@@ -274,3 +262,11 @@ spec = describe "Testing signal processing operators" $ do
         it "should generate predicted int sequence" $ do
             x <- (runConduit (genRandom (40, 50) 2 .| takeC 10 .| sinkList))
             x `shouldBe` expected
+
+    context "sequencing int" $
+        let
+            expected = [3, 4, 5, 6, 7]
+        in
+        it "should count from 3 up to 7" $ do
+            (runConduitPure (geSequence 3 .| takeC 5 .| sinkList))
+        `shouldBe` expected

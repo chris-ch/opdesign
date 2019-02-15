@@ -1,6 +1,6 @@
 module OpDesign.SignalProcessing where
 
-import Prelude (Int, Monad, Num, Double, Rational, Maybe(..), Bool)
+import Prelude (Int, Monad, Num, Double, Rational, Maybe(..), Bool, Integer)
 import Prelude (replicate, pi, round, cycle, fromIntegral, fromInteger, sin, return, init, sum, zipWith)
 import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
 
@@ -9,7 +9,7 @@ import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, merge
 import Conduit ((.|))
 import Data.Conduit.List (groupBy)
 
-import Control.Monad.State (get, put, lift)
+import Control.Monad.State (get, put, lift, modify, MonadState)
 import Control.Monad.Trans.State.Strict (StateT)
 
 import System.Random (randomRs, mkStdGen)
@@ -113,3 +113,22 @@ tfGroupBy = groupBy
 -- merging source into conduit
 testMergeSource :: (Monad m) => ConduitT () i m ()  -> ConduitT a (i, a) m ()
 testMergeSource = mergeSource
+
+counterC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
+counterC = do
+        x0 <-  await
+        case x0 of
+            Nothing -> return ()
+            Just _ -> do
+                lift $ modify (+1)
+                r <- lift get
+                yield r
+                counterC
+
+tfCounter :: (Num a) => Integer -> Transfer a Integer
+tfCounter start = evalStateC start counterC
+
+genSequence :: (Monad m) => Int -> ConduitT () Int m ()
+genSequence nextVal = do
+    yield nextVal
+    genSequence (nextVal + 1)
