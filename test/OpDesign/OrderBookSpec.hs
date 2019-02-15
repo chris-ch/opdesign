@@ -131,11 +131,22 @@ spec = describe "Testing reading ticks using pipes" $ do
 
     context "counting seconds" $
         it "should count 5 seconds" $ 
-            runConduitPure (sequencer (read "2014-10-28 23:59:14" :: UTCTime) .| takeC 5 .| sinkList)
+            runConduitPure (sequencer 1 (mkUTC "2014-10-28 23:59:14") .| takeC 5 .| sinkList)
         `shouldBe` [
             mkUTC "2014-10-28 23:59:14",
             mkUTC "2014-10-28 23:59:15",
             mkUTC "2014-10-28 23:59:16",
             mkUTC "2014-10-28 23:59:17",
             mkUTC "2014-10-28 23:59:18"
+            ]
+
+    context "counting minutes" $
+        it "should count 5 minutes" $ 
+            runConduitPure (sequencer 60 (mkUTC "2014-10-28 23:59:14") .| takeC 5 .| sinkList)
+        `shouldBe` [
+            mkUTC "2014-10-28 23:59:14",
+            mkUTC "2014-10-29 00:00:14",
+            mkUTC "2014-10-29 00:01:14",
+            mkUTC "2014-10-29 00:02:14",
+            mkUTC "2014-10-29 00:03:14"
             ]

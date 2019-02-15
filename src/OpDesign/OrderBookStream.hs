@@ -1,7 +1,7 @@
 module OpDesign.OrderBookStream where
 
-import Prelude (Monad, Maybe(..), Rational, String, Int, Num)
-import Prelude (return, maybe, last, read)
+import Prelude (Monad, Maybe(..), Rational, String, Int)
+import Prelude (return, maybe, last)
 import Prelude ((.), ($), (==), (>>=), (+), (/))
 
 import qualified Data.Conduit.Text as CText (lines)
@@ -14,16 +14,16 @@ import Data.Time (UTCTime(..), addUTCTime)
 import Data.Time.LocalTime (TimeOfDay(..), todMin, timeToTimeOfDay, timeOfDayToTime)
 import Data.Time.Calendar ()
 import Conduit ((.|))
-import Conduit (ConduitT, await, yield, evalStateC, yieldMany)
+import Conduit (ConduitT, await, yield, evalStateC)
 import Conduit (mapC, decodeUtf8C, scanlC)
 import Conduit()
 import Data.Conduit.List (groupBy)
 import Conduit (MonadThrow)
 
-import Control.Monad.State (get, put, lift, modify, forever, MonadState)
+import Control.Monad.State (get, put, lift)
 import Control.Monad.Trans.State.Strict (StateT)
 
-import Data.Time (TimeZone)
+import Data.Time (TimeZone, NominalDiffTime)
 
 import OpDesign.OrderBook (OrderBook(..), TickData, updateOrderBook, fromTickData, fromPrice, parseTickData)
 
@@ -95,29 +95,8 @@ ceilingMinute time = UTCTime (utctDay time') (timeOfDayToTime (TimeOfDay hour mi
         time' = plusOneMin time
         (TimeOfDay hour minute _) = timeToTimeOfDay (utctDayTime time')
 
-data SequencerPeriod = Second | Minute | Hour | Day
--- sequencer :: (Monad m) => SequencerPeriod -> UTCTime -> UTCTime -> ConduitT () UTCTime m ()
--- sequencer = 
-
---sequencer :: (MonadState UTCTime m) => ConduitT Int UTCTime m ()
---sequencer = yieldMany [0, 0, 0, 0 :: Int] .| evalStateC (read "2014-10-28 06:50:00" :: UTCTime) sequencerC
-
-sequencer :: (Monad m) => UTCTime -> ConduitT () UTCTime m ()
-sequencer nextVal = do
+sequencer :: (Monad m) => NominalDiffTime -> UTCTime -> ConduitT () UTCTime m ()
+sequencer period nextVal = do
     yield nextVal
-    sequencer (addUTCTime 1 nextVal)
+    sequencer period (addUTCTime period nextVal)
 
--- counterC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
--- counterC = do
---         x0 <-  await
---         case x0 of
---             Nothing -> return ()
---             Just _ -> do
---                 lift $ modify (+1)
---                 r <- lift get
---                 yield r
---                 counterC
-
--- tfCounter :: (Num a) => Integer -> Transfer a Integer
--- tfCounter start = evalStateC start counterC
-    
