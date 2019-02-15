@@ -8,7 +8,7 @@ import Data.Ratio ((%))
 import Data.Void()
 import Data.Time()
 import Conduit ()
-import Conduit (yieldMany, runConduitPure, mapC, scanlC, dropC, sinkList)
+import Conduit (yieldMany, runConduitPure, mapC, scanlC, dropC, takeC, sinkList)
 import Conduit ((.|))
 import Data.Time.LocalTime ()
 import Data.List()
@@ -19,7 +19,7 @@ import Data.Conduit.List(groupBy)
 import Data.Conduit.Combinators()
 import Conduit()
 
-import OpDesign.OrderBookStream (streamOrderBook, streamTickData, scanl1C, trfMidPrice, trfSample, ceilingMinute, extractMinute)
+import OpDesign.OrderBookStream (streamOrderBook, streamTickData, scanl1C, trfMidPrice, trfSample, ceilingMinute, extractMinute, sequencer)
 
 testInputData :: [String]
 testInputData = lines "\
@@ -35,6 +35,9 @@ testInputData = lines "\
 \2014-10-28 06:53:04.000000,BEST_BID,8940.0,6.0,S\n\
 \2014-10-28 06:53:05.000000,BEST_BID,8938.5,8.0,S\n\
 \"
+
+mkUTC :: String -> UTCTime
+mkUTC = read
 
 spec :: Spec
 spec = describe "Testing reading ticks using pipes" $ do
@@ -125,3 +128,14 @@ spec = describe "Testing reading ticks using pipes" $ do
         it "should return next round minute" $ 
             ceilingMinute (read "2014-10-28 23:59:14" :: UTCTime)
         `shouldBe` (read "2014-10-29 00:00:00" :: UTCTime)
+
+    context "counting seconds" $
+        it "should count 5 seconds" $ 
+            runConduitPure (sequencer (read "2014-10-28 23:59:14" :: UTCTime) .| takeC 5 .| sinkList)
+        `shouldBe` [
+            mkUTC "2014-10-28 23:59:14",
+            mkUTC "2014-10-28 23:59:15",
+            mkUTC "2014-10-28 23:59:16",
+            mkUTC "2014-10-28 23:59:17",
+            mkUTC "2014-10-28 23:59:18"
+            ]

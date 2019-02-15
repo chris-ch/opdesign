@@ -99,19 +99,13 @@ data SequencerPeriod = Second | Minute | Hour | Day
 -- sequencer :: (Monad m) => SequencerPeriod -> UTCTime -> UTCTime -> ConduitT () UTCTime m ()
 -- sequencer = 
 
-sequencerC :: (MonadState UTCTime m) => ConduitT Int UTCTime m ()
-sequencerC = do
-    x0 <-  await
-    case x0 of
-        Nothing -> return ()
-        Just _ -> do
-            lift $ modify (addUTCTime 1)
-            r <- lift get
-            yield r
-            sequencerC
-
 --sequencer :: (MonadState UTCTime m) => ConduitT Int UTCTime m ()
 --sequencer = yieldMany [0, 0, 0, 0 :: Int] .| evalStateC (read "2014-10-28 06:50:00" :: UTCTime) sequencerC
+
+sequencer :: (Monad m) => UTCTime -> ConduitT () UTCTime m ()
+sequencer nextVal = do
+    yield nextVal
+    sequencer (addUTCTime 1 nextVal)
 
 -- counterC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
 -- counterC = do

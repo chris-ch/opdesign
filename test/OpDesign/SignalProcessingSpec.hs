@@ -268,5 +268,5 @@ spec = describe "Testing signal processing operators" $ do
             expected = [3, 4, 5, 6, 7]
         in
         it "should count from 3 up to 7" $ do
-            (runConduitPure (geSequence 3 .| takeC 5 .| sinkList))
+            (runConduitPure (genSequence 3 .| takeC 5 .| sinkList))
         `shouldBe` expected
