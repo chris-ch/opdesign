@@ -12,7 +12,7 @@ import Conduit (ConduitT)
 import Conduit (yieldMany, runConduitPure,mapC, sinkList)
 import Conduit ((.|))
 
-import Data.Conduit.Merge (mergeSort)
+import Data.Conduit.Merge (zipUpdate)
 
 import OpDesign.OrderBookStream (streamOrderBook, streamTickData)
 
@@ -112,7 +112,7 @@ spec = describe "Testing trading strategies" $ do
 
         in
         it "should multiplex order books" $
-            runConduitPure ( mergeSort sortOrderBooks product1 product2 .| sinkList)
+            runConduitPure ( zipUpdate sortOrderBooks product1 product2 .| sinkList)
         `shouldBe` [
             ( Nothing,                                                                                              jTestPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
             ( jTestPartialOB "2014-10-28 11:50:00" (Just $ Volume 10)  (Just $ Price 8938.0) Nothing Nothing,       jTestPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100)  ),
@@ -125,7 +125,6 @@ spec = describe "Testing trading strategies" $ do
             ( jTestOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                     jTestOB "2014-10-28 11:51:40" 121 24.40 24.43 23                                               ),
             ( jTestOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                     jTestOB "2014-10-28 11:51:41" 121 24.40 24.50 65                                               ),
             ( jTestOB "2014-10-28 11:50:56" 11 8940.0 8941.0 4,                                                     jTestOB "2014-10-28 11:52:26" 62  24.45 24.50 65                                               ),
-            ( jTestOB "2014-10-28 11:52:41" 11 8940.0 8943.5 2,                                                     jTestOB "2014-10-28 11:52:26" 62  24.45 24.50 65                                               ),
             ( jTestOB "2014-10-28 11:52:41" 11 8940.0 8943.5 2,                                                     jTestOB "2014-10-28 11:52:41" 140 24.33 24.50 65                                               ),
             ( jTestOB "2014-10-28 11:52:43" 11 8940.0 8950.0 5,                                                     jTestOB "2014-10-28 11:52:41" 140 24.33 24.50 65                                               ),
             ( jTestOB "2014-10-28 11:52:43" 11 8940.0 8950.0 5,                                                     jTestOB "2014-10-28 11:52:46" 220 24.45 24.50 65                                               ),

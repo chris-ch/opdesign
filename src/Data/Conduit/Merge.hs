@@ -1,13 +1,12 @@
 module Data.Conduit.Merge where
 
-import Prelude (Monad, Bool, Maybe(..), Show, Eq)
-import Prelude (otherwise, return)
-import Prelude (($))
+import Prelude (Monad, Bool(..), Maybe(..))
+import Prelude (otherwise, return, const)
+import Prelude (($), (>>))
 import Conduit (ConduitT)
-import Conduit (evalStateC, mapC, yield, await)
+import Conduit (takeWhileC, dropC, peekC, yield)
 import Conduit ((.|))
-import Control.Monad.State (get, put, lift)
-import Control.Monad.Trans.State.Strict (StateT)
+import Control.Monad.State (lift)
 
 import qualified Data.Conduit.Internal as CI
 
@@ -39,61 +38,34 @@ processMergeC2 comparator s1 s2 rest = go (s1 CI.Done) (s2 CI.Done)
         go (CI.Leftover next ()) left = go next left
         go right (CI.Leftover next ()) = go right next
 
-data MergeTag = LeftItem | RightItem deriving (Show, Eq)
-data TaggedItem a = TaggedItem MergeTag a deriving (Show, Eq)
-mergeTag :: (Monad m) => (a -> a -> Bool) -> ConduitT () a m () -> ConduitT () a m () -> ConduitT () (TaggedItem a) m ()
-mergeTag func series1 series2 = mergeC2 (tagSort func) taggedSeries1 taggedSeries2
-                where
-                    taggedSeries1 = series1 .| mapC (\item -> TaggedItem LeftItem item)
-                    taggedSeries2 = series2 .| mapC (\item -> TaggedItem RightItem item)
-                    tagSort :: (a -> a -> Bool) -> TaggedItem a -> TaggedItem a -> Bool
-                    tagSort f (TaggedItem _ item1) (TaggedItem _ item2) = f item1 item2
 
-type StateMergePair a = (Maybe a, Maybe a)
-pairTagC :: (Monad m) => ConduitT  (TaggedItem a) (StateMergePair a) (StateT (StateMergePair a) m) ()
-pairTagC = do
-    input <- await
-    case input of
-        Nothing -> return ()
-        Just taggedItem -> do
-            stateMergePair <- lift get
-            let outputState = updateStateMergePair taggedItem stateMergePair
-            lift $ put outputState
-            yield outputState
-            pairTagC
+zipUpdateDef :: (Monad m) => (a -> a -> Bool) -> ConduitT () a m () -> ConduitT () a m () -> (Maybe a, Maybe a) -> ConduitT () (Maybe a, Maybe a) m ()
+zipUpdateDef f c1 c2 (s1, s2) = do
+    ma <- c1 .| peekC
+    mb <- c2 .| peekC
+    case (ma, mb) of
+        (Just a, Just b) ->
+            case (f a b, f b a) of
+                (True, True) -> do
+                    yield (ma, mb)
+                    zipUpdateDef f (c1 .| drop1) (c2 .| drop1) (ma, mb)
+                (_, True) -> do
+                    yield (s1, mb)
+                    zipUpdateDef f c1 (c2 .| drop1) (s1, mb)
+                (True, _) -> do
+                    yield (ma, s2)
+                    zipUpdateDef f (c1 .| drop1) c2 (ma, s2)
+                _ ->
+                    zipUpdateDef f (c1 .| drop1) (c2 .| drop1) (ma, s2)
+        (Just _, Nothing) -> do
+            yield (ma, s2)
+            zipUpdateDef f (c1 .| drop1) c2 (ma, s2)
+        (Nothing, Just _) -> do
+            yield (s1, mb)
+            zipUpdateDef f c1 (c2 .| drop1) (s1, mb)
+        _ -> return ()
+  where
+    drop1 = dropC 1 >> takeWhileC (const True)
 
-updateStateMergePair :: TaggedItem a -> StateMergePair a -> StateMergePair a
-updateStateMergePair (TaggedItem tag item) (Just leftItem, Just rightItem) = case tag of
-    LeftItem -> (Just item, Just rightItem)
-    RightItem -> (Just leftItem, Just item)
-
-updateStateMergePair (TaggedItem tag item) (Nothing, Just rightItem) = case tag of
-    LeftItem -> (Just item, Just rightItem)
-    RightItem -> (Nothing, Just item)
-
-updateStateMergePair (TaggedItem tag item) (Just leftItem, Nothing) = case tag of
-    LeftItem -> (Just item, Nothing)
-    RightItem -> (Just leftItem, Just item)
-
-updateStateMergePair (TaggedItem tag item) (Nothing, Nothing) = case tag of
-    LeftItem -> (Just item, Nothing)
-    RightItem -> (Nothing, Just item)
-
-pairTag :: (Monad m) => ConduitT (TaggedItem a) (StateMergePair a) m ()
-pairTag = evalStateC (Nothing, Nothing) pairTagC
-
-mergeSort :: (Monad m) => (a -> a -> Bool) -> ConduitT () a m () -> ConduitT () a m () -> ConduitT () (StateMergePair a) m ()
-mergeSort func series1 series2 = mergeTag func series1 series2 .| pairTag
-
-
-keepJustC :: (Monad m) => ConduitT (StateMergePair a) (a, a) m ()
-keepJustC = do
-    input <- await
-    case input of
-        Nothing -> return ()
-        Just mergePair -> do
-            case mergePair of
-                (Just item1, Just item2) -> yield (item1, item2)
-                _ -> return ()
-                
-            keepJustC
+zipUpdate :: (Monad m) => (a -> a -> Bool) -> ConduitT () a m () -> ConduitT () a m () -> ConduitT () (Maybe a, Maybe a) m ()
+zipUpdate f c1 c2 = zipUpdateDef f c1 c2 (Nothing, Nothing)

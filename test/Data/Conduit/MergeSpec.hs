@@ -8,7 +8,7 @@ import Conduit (yieldMany, runConduitPure, takeC)
 import Conduit (sinkList)
 import Conduit ((.|))
 
-import Data.Conduit.Merge (mergeC2, mergeSort)
+import Data.Conduit.Merge (mergeC2, zipUpdate)
 
 spec :: Spec
 spec = describe "Testing Conduit merging operators" $ do
@@ -33,5 +33,5 @@ spec = describe "Testing Conduit merging operators" $ do
             series2 = yieldMany [1, 5, 6 :: Int]
         in
         it "should zip 2 sources" $
-            runConduitPure ( (mergeSort (<=) series1 series2) .| sinkList )
-            `shouldBe` [(Nothing, Just 1), (Just 2, Just 1), (Just 4, Just 1), (Just 4, Just 5), (Just 6, Just 5), (Just 6, Just 6), (Just 8, Just 6), (Just 16, Just 6)]
+            runConduitPure ( (zipUpdate (<=) series1 series2) .| sinkList )
+            `shouldBe` [(Nothing, Just 1), (Just 2, Just 1), (Just 4, Just 1), (Just 4, Just 5), (Just 6, Just 6), (Just 8, Just 6), (Just 16, Just 6)]
