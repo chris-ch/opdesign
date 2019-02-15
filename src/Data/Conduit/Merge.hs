@@ -79,8 +79,21 @@ updateStateMergePair (TaggedItem tag item) (Nothing, Nothing) = case tag of
     LeftItem -> (Just item, Nothing)
     RightItem -> (Nothing, Just item)
 
-pairTag :: (Monad m) => ConduitT  (TaggedItem a) (StateMergePair a) m ()
+pairTag :: (Monad m) => ConduitT (TaggedItem a) (StateMergePair a) m ()
 pairTag = evalStateC (Nothing, Nothing) pairTagC
 
 mergeSort :: (Monad m) => (a -> a -> Bool) -> ConduitT () a m () -> ConduitT () a m () -> ConduitT () (StateMergePair a) m ()
 mergeSort func series1 series2 = mergeTag func series1 series2 .| pairTag
+
+
+keepJustC :: (Monad m) => ConduitT (StateMergePair a) (a, a) m ()
+keepJustC = do
+    input <- await
+    case input of
+        Nothing -> return ()
+        Just mergePair -> do
+            case mergePair of
+                (Just item1, Just item2) -> yield (item1, item2)
+                _ -> return ()
+                
+            keepJustC
