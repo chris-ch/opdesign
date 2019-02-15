@@ -1,43 +1,39 @@
 module Data.Conduit.Merge where
 
 import Prelude (Monad, Bool(..), Maybe(..))
-import Prelude (otherwise, return, const)
-import Prelude (($), (>>))
+import Prelude (return, const)
+import Prelude ((>>))
 import Conduit (ConduitT)
 import Conduit (takeWhileC, dropC, peekC, yield)
 import Conduit ((.|))
-import Control.Monad.State (lift)
-
-import qualified Data.Conduit.Internal as CI
 
 -- | Takes two sources and merges them.
 -- This comes from https://github.com/luispedro/conduit-algorithms made available thanks to Luis Pedro Coelho.
 mergeC2 :: (Monad m) => (a -> a -> Bool) -> ConduitT () a m () -> ConduitT () a m () -> ConduitT () a m ()
-mergeC2 comparator (CI.ConduitT s1) (CI.ConduitT s2) = CI.ConduitT $  processMergeC2 comparator s1 s2
+mergeC2 comparator c1 c2 = do
+    ma <- c1 .| peekC
+    mb <- c2 .| peekC
+    case (ma, mb) of
+        (Just a, Just b) -> case comparator a b of 
+            True -> do
+                yield a
+                mergeC2 comparator (c1 .| drop1) c2
+            False -> do
+                yield b
+                mergeC2 comparator c1 (c2 .| drop1)
 
-processMergeC2 :: Monad m => (a -> a -> Bool)
-                        -> ((() -> CI.Pipe () () a () m ()) -> CI.Pipe () () a () m ()) -- s1    ConduitT () a m ()
-                        -> ((() -> CI.Pipe () () a () m ()) -> CI.Pipe () () a () m ()) -- s2    ConduitT () a m ()
-                        -> ((() -> CI.Pipe () () a () m b ) -> CI.Pipe () () a () m b ) -- rest  ConduitT () a m ()
-processMergeC2 comparator s1 s2 rest = go (s1 CI.Done) (s2 CI.Done)
+        (Just a, Nothing) -> do
+            yield a
+            mergeC2 comparator (c1 .| drop1) c2
+
+        (Nothing, Just b) -> do
+            yield b
+            mergeC2 comparator c1 (c2 .| drop1)
+
+        _ -> return ()
+
     where
-        go s1''@(CI.HaveOutput s1' v1) s2''@(CI.HaveOutput s2' v2)  -- s1''@ and s2''@ simply name the pattern expressions
-            | comparator v1 v2 = CI.HaveOutput (go s1' s2'') v1
-            | otherwise = CI.HaveOutput (go s1'' s2') v2
-        go s1'@CI.Done{} (CI.HaveOutput s v) = CI.HaveOutput (go s1' s) v
-        go (CI.HaveOutput s v) s1'@CI.Done{}  = CI.HaveOutput (go s s1')  v
-        go CI.Done{} CI.Done{} = rest ()
-        go (CI.PipeM p) left = do
-            next <- lift p
-            go next left
-        go right (CI.PipeM p) = do
-            next <- lift p
-            go right next
-        go (CI.NeedInput _ next) left = go (next ()) left
-        go right (CI.NeedInput _ next) = go right (next ())
-        go (CI.Leftover next ()) left = go next left
-        go right (CI.Leftover next ()) = go right next
-
+        drop1 = dropC 1 >> takeWhileC (const True)
 
 zipUpdateDef :: (Monad m) => (a -> a -> Bool) -> ConduitT () a m () -> ConduitT () a m () -> (Maybe a, Maybe a) -> ConduitT () (Maybe a, Maybe a) m ()
 zipUpdateDef f c1 c2 (s1, s2) = do
