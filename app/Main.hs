@@ -18,7 +18,7 @@ import System.Console.CmdArgs.Explicit (Mode)
 
 import qualified Data.Conduit.Combinators as Cmb (print)
 
-import OpDesign.TicksReader (readTicks)
+import OpDesign.TicksReader (readTicks, readTicks')
 import OpDesign.OrderBookStream (streamTickString, streamOrderBook, streamTickData)
 
 -----------------------------------------------------------
