@@ -42,3 +42,8 @@ readTicksFiles ticksArchivePath sinkTicks entry = withArchive ticksArchivePath $
 
 readTicksFiles' :: FilePath -> EntrySelector -> IO (ConduitT () ByteString (ResourceT IO) ())
 readTicksFiles' ticksArchivePath entry = withArchive ticksArchivePath $ getEntrySource entry
+
+readTicks' :: FilePath -> String -> IO [ConduitT () ByteString (ResourceT IO) ()]
+readTicks'  ticksFile csvFilePattern = do
+    csvEntries <- listEntries ticksFile csvFilePattern
+    mapM (readTicksFiles' ticksFile) csvEntries
