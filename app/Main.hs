@@ -11,7 +11,7 @@ import Data.Void (Void)
 import Data.ByteString (ByteString)
 import Conduit ((.|))
 import Conduit (ConduitT, ResourceT)
-import Conduit (runConduit)
+import Conduit (runConduit, runResourceT)
 
 import System.Console.CmdArgs (CmdArgs, def, help, opt, typ, argPos, cmdArgsMode, cmdArgsRun, (&=))
 import System.Console.CmdArgs.Explicit (Mode)
@@ -48,5 +48,6 @@ main = do
     print $ "pattern for CSV files in archive: '" ++ (pattern parsedArguments) ++ "'"
     print $ "ticks archive file: '" ++ (ticks parsedArguments) ++ "'"
     print $ "timezone in archive file: '" ++ (timezone parsedArguments) ++ "'"
-    stream <- readTicks (ticks parsedArguments) (pattern parsedArguments) (outputStream (tzParse (timezone parsedArguments)))
-    runConduit stream
+    --stream <- readTicks (ticks parsedArguments) (pattern parsedArguments) (outputStream (tzParse (timezone parsedArguments)))
+    readTicks' (ticks parsedArguments) (pattern parsedArguments) (outputStream (tzParse (timezone parsedArguments)))
+
