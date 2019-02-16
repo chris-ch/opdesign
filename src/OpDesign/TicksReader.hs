@@ -16,15 +16,6 @@ import Data.Void (Void)
 import Control.Monad.State (get)
 import Control.Monad (join, fmap, return, join)
 
---sourceFile :: MonadResource m => Zip -> FilePath -> Source m ByteString
-
---sourceEntry :: FilePath -> Sink ByteString (ResourceT Archive) a -> Archive a
-
---withArchive :: FilePath -> Archive a -> IO a
-
---readTicksFiles' :: FilePath -> EntrySelector -> IO ()
---readTicksFiles' ticksArchivePath entry = withArchive ticksArchivePath entry
-
 -- checks whether we are processing a valid csv file containing ticks data
 isTickFile :: String -> EntrySelector -> Bool
 isTickFile tickFilePattern entry = isJust (matchRegex (mkRegex tickFilePattern) (unpack (getEntryName entry)))
@@ -41,25 +32,13 @@ extractEntries path = withArchive path loadEntries
 listEntries :: FilePath -> String -> IO [EntrySelector] 
 listEntries ticksFile csvFilePattern = fmap (selectEntries (isTickFile csvFilePattern)) (extractEntries ticksFile)
 
-readTicks :: FilePath -> String -> ConduitT ByteString Void (ResourceT IO) () -> IO (ConduitT () Void IO ())
-readTicks ticksFile csvFilePattern sinkTicks = do
+readTicks :: FilePath -> String -> ConduitT ByteString Void (ResourceT IO) () -> IO ()
+readTicks  ticksFile csvFilePattern sinkTicks = do
     csvEntries <- listEntries ticksFile csvFilePattern
-    let stream = yieldMany csvEntries .| mapM_C (readTicksFiles ticksFile sinkTicks)
-    return stream
-
-readTicks' :: FilePath -> String -> ConduitT ByteString Void (ResourceT IO) () -> IO ()
-readTicks' ticksFile csvFilePattern sinkTicks = do
-    x <- (listEntries ticksFile csvFilePattern)
-    mapM_ (readTicksFiles ticksFile sinkTicks) x
+    mapM_ (readTicksFiles ticksFile sinkTicks) csvEntries
 
 readTicksFiles :: FilePath -> ConduitT ByteString Void (ResourceT IO) () -> EntrySelector -> IO ()
 readTicksFiles ticksArchivePath sinkTicks entry = withArchive ticksArchivePath $ sourceEntry entry sinkTicks
 
-
---readTicksFiles :: FilePath -> ConduitT ByteString Void (ResourceT IO) () -> EntrySelector -> IO ()
 readTicksFiles' :: FilePath -> EntrySelector -> IO (ConduitT () ByteString (ResourceT IO) ())
 readTicksFiles' ticksArchivePath entry = withArchive ticksArchivePath $ getEntrySource entry
-
-
---readTicks'' :: FilePath -> String -> ConduitT ByteString Void (ResourceT IO) () -> IO ()
---readTicks'' ticksFile csvFilePattern sinkTicks = mapM_ (readTicksFiles ticksFile sinkTicks) (listEntries ticksFile csvFilePattern)

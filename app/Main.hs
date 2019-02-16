@@ -18,7 +18,7 @@ import System.Console.CmdArgs.Explicit (Mode)
 
 import qualified Data.Conduit.Combinators as Cmb (print)
 
-import OpDesign.TicksReader (readTicks, readTicks')
+import OpDesign.TicksReader (readTicks)
 import OpDesign.OrderBookStream (streamTickString, streamOrderBook, streamTickData)
 
 -----------------------------------------------------------
@@ -37,8 +37,8 @@ opdesign = cmdArgsMode OpDesign{
     }
 
 -----------------------------------------------------------
-outputStream :: TimeZone -> ConduitT ByteString Void (ResourceT IO) ()
-outputStream tz = streamTickString .| streamTickData tz .| streamOrderBook .| Cmb.print
+strToOrderBookStream :: TimeZone -> ConduitT ByteString Void (ResourceT IO) ()
+strToOrderBookStream tz = streamTickString .| streamTickData tz .| streamOrderBook .| Cmb.print
           
 -----------------------------------------------------------
 
@@ -48,6 +48,5 @@ main = do
     print $ "pattern for CSV files in archive: '" ++ (pattern parsedArguments) ++ "'"
     print $ "ticks archive file: '" ++ (ticks parsedArguments) ++ "'"
     print $ "timezone in archive file: '" ++ (timezone parsedArguments) ++ "'"
-    --stream <- readTicks (ticks parsedArguments) (pattern parsedArguments) (outputStream (tzParse (timezone parsedArguments)))
-    readTicks' (ticks parsedArguments) (pattern parsedArguments) (outputStream (tzParse (timezone parsedArguments)))
+    readTicks (ticks parsedArguments) (pattern parsedArguments) (strToOrderBookStream (tzParse (timezone parsedArguments)))
 
