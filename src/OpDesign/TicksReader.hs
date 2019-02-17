@@ -30,15 +30,17 @@ extractEntries path = withArchive path loadEntries
         loadEntries = fmap keys getEntries
 
 listEntries :: FilePath -> String -> IO [EntrySelector] 
-listEntries ticksFile csvFilePattern = fmap (selectEntries (isTickFile csvFilePattern)) (extractEntries ticksFile)
+listEntries ticksFile filePattern = fmap (selectEntries selector) (extractEntries ticksFile)
+        where
+            selector = isTickFile filePattern
 
-readTicksFiles :: FilePath -> EntrySelector -> IO (ConduitT () ByteString (ResourceT IO) ())
-readTicksFiles ticksArchivePath entry = withArchive ticksArchivePath $ getEntrySource entry
+readTicksFromEntry :: FilePath -> EntrySelector -> IO (ConduitT () ByteString (ResourceT IO) ())
+readTicksFromEntry ticksArchivePath entry = withArchive ticksArchivePath $ getEntrySource entry
         
-readTicks :: FilePath -> String -> IO [ConduitT () ByteString (ResourceT IO) ()]
-readTicks ticksFile csvFilePattern = do
+strTicksByEntry :: FilePath -> String -> IO [ConduitT () ByteString (ResourceT IO) ()]
+strTicksByEntry ticksFile csvFilePattern = do
     csvEntries <- listEntries ticksFile csvFilePattern
-    mapM (readTicksFiles ticksFile) csvEntries
+    mapM (readTicksFromEntry ticksFile) csvEntries
 
-loadTicks :: FilePath -> String -> IO (ConduitT () ByteString (ResourceT IO) ())
-loadTicks ticksFile csvFilePattern = liftM sequence_ $ readTicks ticksFile csvFilePattern
+strTicks :: FilePath -> String -> IO (ConduitT () ByteString (ResourceT IO) ())
+strTicks ticksFile csvFilePattern = liftM sequence_ $ strTicksByEntry ticksFile csvFilePattern
