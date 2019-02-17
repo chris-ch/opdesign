@@ -13,7 +13,7 @@ import Conduit (runConduit, runResourceT)
 import System.Console.CmdArgs (CmdArgs, def, help, opt, typ, argPos, cmdArgsMode, cmdArgsRun, (&=))
 import System.Console.CmdArgs.Explicit (Mode)
 
-import qualified Data.Conduit.Combinators as Cmb (print)
+import qualified Data.Conduit.Combinators as Cmb (print, last)
 
 import OpDesign.TicksReader (ticksFile)
 import OpDesign.OrderBookStream (cleanStrTicks, toOrderBook, toTickData)
@@ -38,7 +38,8 @@ main = do
     parsedArguments <- cmdArgsRun opdesign
     print $ "pattern for CSV files in archive: '" ++ (pattern parsedArguments) ++ "'"
     print $ "ticks archive file: '" ++ (ticks parsedArguments) ++ "'"
-    print $ "timezone in archive file: '" ++ (timezone parsedArguments) ++ "'"
+    print $ "timezone used for interpreting archive file content: '" ++ (timezone parsedArguments) ++ "'"
     strTicks <- ticksFile (ticks parsedArguments) (pattern parsedArguments)
     let tz = tzParse $ timezone parsedArguments
-    runResourceT $ runConduit (strTicks .| cleanStrTicks .| toTickData tz .| toOrderBook .| Cmb.print)
+    output <- runResourceT $ runConduit (strTicks .| cleanStrTicks .| toTickData tz .| toOrderBook .| Cmb.last )
+    print $ output
