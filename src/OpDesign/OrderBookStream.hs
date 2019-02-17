@@ -34,8 +34,8 @@ scanl1C f = await >>= maybe (return ()) (scanlC f)
 dos2unix :: String -> String
 dos2unix = dropWhileEnd (== '\r')
 
-streamTickString :: (MonadThrow m) => ConduitT ByteString String m ()
-streamTickString = decodeUtf8C
+cleanStrTicks :: (MonadThrow m) => ConduitT ByteString String m ()
+cleanStrTicks = decodeUtf8C
                 .| CText.lines
                 .| mapC unpack
                 .| mapC dos2unix

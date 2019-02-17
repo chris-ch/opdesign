@@ -5,12 +5,9 @@ import Prelude (($), (++))
 import Prelude (print)
 
 import Data.Data (Data, Typeable)
-import Data.Time (TimeZone)
 import Data.Timezones.TZ (tzParse)
-import Data.Void (Void)
 import Data.ByteString (ByteString)
 import Conduit ((.|))
-import Conduit (ConduitT, ResourceT)
 import Conduit (runConduit, runResourceT)
 
 import System.Console.CmdArgs (CmdArgs, def, help, opt, typ, argPos, cmdArgsMode, cmdArgsRun, (&=))
@@ -18,8 +15,8 @@ import System.Console.CmdArgs.Explicit (Mode)
 
 import qualified Data.Conduit.Combinators as Cmb (print)
 
-import OpDesign.TicksReader (readTicks)
-import OpDesign.OrderBookStream (streamTickString, streamOrderBook, streamTickData)
+import OpDesign.TicksReader (loadTicks)
+import OpDesign.OrderBookStream (cleanStrTicks, streamOrderBook, streamTickData)
 
 -----------------------------------------------------------
 
@@ -36,17 +33,12 @@ opdesign = cmdArgsMode OpDesign{
     ticks = def &= argPos 0 &= typ "ARCHIVE"
     }
 
------------------------------------------------------------
-strToOrderBookStream :: TimeZone -> ConduitT ByteString Void (ResourceT IO) ()
-strToOrderBookStream tz = streamTickString .| streamTickData tz .| streamOrderBook .| Cmb.print
-          
------------------------------------------------------------
-
 main :: IO ()
 main = do
     parsedArguments <- cmdArgsRun opdesign
     print $ "pattern for CSV files in archive: '" ++ (pattern parsedArguments) ++ "'"
     print $ "ticks archive file: '" ++ (ticks parsedArguments) ++ "'"
     print $ "timezone in archive file: '" ++ (timezone parsedArguments) ++ "'"
-    readTicks (ticks parsedArguments) (pattern parsedArguments) (strToOrderBookStream (tzParse (timezone parsedArguments)))
-
+    strTicks <- loadTicks (ticks parsedArguments) (pattern parsedArguments)
+    let tz = tzParse $ timezone parsedArguments
+    runResourceT $ runConduit (strTicks .| cleanStrTicks .| streamTickData tz .| streamOrderBook .| Cmb.print)
