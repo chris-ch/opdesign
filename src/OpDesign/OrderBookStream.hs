@@ -40,8 +40,8 @@ cleanStrTicks = decodeUtf8C
                 .| mapC unpack
                 .| mapC dos2unix
 
-streamTickData :: (Monad m) => TimeZone -> ConduitT String TickData m ()
-streamTickData tz = mapC (parseTickData tz)
+toTickData :: (Monad m) => TimeZone -> ConduitT String TickData m ()
+toTickData tz = mapC (parseTickData tz)
 
 type StateOrderBook = Maybe OrderBook
 streamOrderBookC :: (Monad m) => ConduitT TickData OrderBook (StateT StateOrderBook m) ()
@@ -61,8 +61,8 @@ makeOrderBook mob t = case mob of
     (Just ob) -> (updateOrderBook ob t)
     Nothing -> (fromTickData t)
 
-streamOrderBook :: (Monad m ) => ConduitT TickData OrderBook m ()
-streamOrderBook = evalStateC Nothing streamOrderBookC
+toOrderBook :: (Monad m ) => ConduitT TickData OrderBook m ()
+toOrderBook = evalStateC Nothing streamOrderBookC
 
 trfMidPrice :: (Monad m ) => ConduitT OrderBook (Maybe Rational) m ()
 trfMidPrice = mapC midPrice

@@ -14,7 +14,7 @@ import Conduit ((.|))
 
 import Data.Conduit.Merge (zipUpdate)
 
-import OpDesign.OrderBookStream (streamOrderBook, streamTickData)
+import OpDesign.OrderBookStream (toOrderBook, toTickData)
 
 testInputData1 :: [String]
 testInputData1 = lines "\
@@ -72,7 +72,7 @@ spec = describe "Testing trading strategies" $ do
 
     context "with short test set 1" $
         it "should generate series of best order books" $
-            runConduitPure ( yieldMany testInputData1 .| streamTickData tzEST .| streamOrderBook .| passThrough .| sinkList)
+            runConduitPure ( yieldMany testInputData1 .| toTickData tzEST .| toOrderBook .| passThrough .| sinkList)
         `shouldBe` [
             testPartialOB "2014-10-28 11:50:00" (Just $ Volume 10)  (Just $ Price 8938.0) Nothing Nothing,
             testOB "2014-10-28 11:50:46" 10 8938.0 8945.0 5,
@@ -89,7 +89,7 @@ spec = describe "Testing trading strategies" $ do
 
     context "with short test set 2" $
         it "should generate series of best order books" $
-            runConduitPure ( yieldMany testInputData2 .| streamTickData tzEST .| streamOrderBook .| passThrough .| sinkList)
+            runConduitPure ( yieldMany testInputData2 .| toTickData tzEST .| toOrderBook .| passThrough .| sinkList)
         `shouldBe` [
             testPartialOB "2014-10-28 11:49:10" Nothing Nothing (Just $ Price 24.48) (Just $ Volume 100),
             testPartialOB "2014-10-28 11:51:32" Nothing Nothing (Just $ Price 24.45) (Just $ Volume 35),
@@ -106,8 +106,8 @@ spec = describe "Testing trading strategies" $ do
 
     context "with screener" $
         let
-            product1 =  (yieldMany testInputData1 .| streamTickData tzEST .| streamOrderBook)
-            product2 =  (yieldMany testInputData2 .| streamTickData tzEST .| streamOrderBook)
+            product1 =  (yieldMany testInputData1 .| toTickData tzEST .| toOrderBook)
+            product2 =  (yieldMany testInputData2 .| toTickData tzEST .| toOrderBook)
             sortOrderBooks ob1 ob2 = date ob1 <= date ob2
 
         in
