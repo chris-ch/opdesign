@@ -1,7 +1,7 @@
 module OpDesign.OrderBookStream where
 
-import Prelude (Monad, Maybe(..), Rational, String, Int)
-import Prelude (return, maybe, last)
+import Prelude (Monad, Maybe(..), Rational, String, Int, Bool)
+import Prelude (return, maybe, last, toRational, round)
 import Prelude ((.), ($), (==), (>>=), (+), (/))
 
 import qualified Data.Conduit.Text as CText (lines)
@@ -16,7 +16,6 @@ import Data.Time.Calendar ()
 import Conduit ((.|))
 import Conduit (ConduitT, await, yield, evalStateC)
 import Conduit (mapC, decodeUtf8C, scanlC)
-import Conduit()
 import Data.Conduit.List (groupBy)
 import Conduit (MonadThrow)
 
@@ -71,29 +70,44 @@ trfMidPrice = mapC midPrice
         midPrice OrderBook {date=_, bidVolume=Just _, bidPrice=Just bid, askPrice=Just ask, askVolume=Just _ } = Just ((fromPrice bid + fromPrice ask) / 2)
         midPrice _ = Nothing
 
-trfSample :: (Monad m) => ConduitT OrderBook OrderBook m ()
-trfSample = groupBy sameMinute .| mapC last .| mapC (\orderbook -> orderbook {date = ceilingMinute (date orderbook)})
-    where
-        sameMinute orderBook orderBookNext = extractMinute (date orderBook) == extractMinute (date orderBookNext)
+data SamplePeriod = Hour | Minute | Second
 
-extractMinute :: UTCTime -> Int
-extractMinute utcDate = todMin (extractTime utcDate)
+trfSample :: (Monad m) => SamplePeriod -> ConduitT OrderBook OrderBook m ()
+trfSample Hour      = groupBy (samePeriod Hour)     .| mapC last .| mapC (\orderbook -> orderbook {date = ceilingHour (date orderbook)})
+trfSample Minute    = groupBy (samePeriod Minute)   .| mapC last .| mapC (\orderbook -> orderbook {date = ceilingMinute (date orderbook)})
+trfSample Second    = groupBy (samePeriod Second)   .| mapC last .| mapC (\orderbook -> orderbook {date = ceilingSecond (date orderbook)})
+
+samePeriod :: SamplePeriod -> OrderBook -> OrderBook -> Bool
+samePeriod period orderBook orderBookNext = getPeriod period (date orderBook) == getPeriod period (date orderBookNext)
+
+getPeriod :: SamplePeriod -> UTCTime -> Int
+getPeriod Hour      utcDate    = todHour (extractTime utcDate)
+getPeriod Minute    utcDate    = todMin (extractTime utcDate)
+getPeriod Second    utcDate    = (round . toRational) $ todSec (extractTime utcDate)
 
 extractTime :: UTCTime -> TimeOfDay
 extractTime = timeToTimeOfDay . utctDayTime
-
-mapMinutes :: Monad m => ConduitT OrderBook (OrderBook, Maybe TimeOfDay) m ()
-mapMinutes = mapC $ \orderBook -> (orderBook, Just (extractTime (date orderBook)))
-
-plusOneMin :: UTCTime -> UTCTime
-plusOneMin = addUTCTime 60
 
 ceilingMinute :: UTCTime -> UTCTime
 ceilingMinute time = UTCTime (utctDay time') (timeOfDayToTime (TimeOfDay hour minute 0))
     where
         time' :: UTCTime
-        time' = plusOneMin time
+        time' = addUTCTime 60 time
         (TimeOfDay hour minute _) = timeToTimeOfDay (utctDayTime time')
+
+ceilingHour :: UTCTime -> UTCTime
+ceilingHour time = UTCTime (utctDay time') (timeOfDayToTime (TimeOfDay hour 0 0))
+    where
+        time' :: UTCTime
+        time' = addUTCTime 3600 time
+        (TimeOfDay hour _ _) = timeToTimeOfDay (utctDayTime time')
+
+ceilingSecond :: UTCTime -> UTCTime
+ceilingSecond time = UTCTime (utctDay time') (timeOfDayToTime (TimeOfDay hour minute second))
+    where
+        time' :: UTCTime
+        time' = addUTCTime 1 time
+        (TimeOfDay hour minute second) = timeToTimeOfDay (utctDayTime time')
 
 sequencer :: (Monad m) => NominalDiffTime -> UTCTime -> ConduitT () UTCTime m ()
 sequencer period nextVal = do

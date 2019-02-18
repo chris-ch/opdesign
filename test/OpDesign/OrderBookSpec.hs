@@ -2,7 +2,7 @@ module OpDesign.OrderBookSpec where
 
 import SpecHelper
 
-import Prelude (String, Integer, Bool(..))
+import Prelude (String, Integer, Int, Bool(..))
 import Prelude (read, lines, Maybe(..), (+), (>>), ($), (==))
 import Data.Ratio ((%))
 import Data.Void()
@@ -19,7 +19,7 @@ import Data.Conduit.List(groupBy)
 import Data.Conduit.Combinators()
 import Conduit()
 
-import OpDesign.OrderBookStream (toOrderBook, toTickData, scanl1C, trfMidPrice, trfSample, ceilingMinute, extractMinute, sequencer)
+import OpDesign.OrderBookStream (toOrderBook, toTickData, scanl1C, trfMidPrice, trfSample, ceilingMinute, getPeriod, sequencer, SamplePeriod(..))
 
 testInputData :: [String]
 testInputData = lines "\
@@ -34,6 +34,15 @@ testInputData = lines "\
 \2014-10-28 06:52:56.000000,BEST_BID,8945.0,10.0,S\n\
 \2014-10-28 06:53:04.000000,BEST_BID,8940.0,6.0,S\n\
 \2014-10-28 06:53:05.000000,BEST_BID,8938.5,8.0,S\n\
+\"
+
+testInputData2 :: [String]
+testInputData2 = lines "\
+\2014-10-28 06:50:00.000000,BEST_BID,8938.0,10.0,S\n\
+\2014-10-28 06:50:46.000000,BEST_BID,8936.0,5.0,S\n\
+\2014-10-28 06:50:46.000000,BEST_BID,8936.5,5.0,S\n\
+\2014-10-28 06:50:46.000000,BEST_BID,8937.0,5.0,S\n\
+\2014-10-28 06:50:54.000000,BEST_ASK,8941.0,4.0,S\n\
 \"
 
 mkUTC :: String -> UTCTime
@@ -86,16 +95,24 @@ spec = describe "Testing reading ticks using pipes" $ do
 
     context "minute sampling" $
         it "should produce a list of minute sampled orderbooks" $
-            runConduitPure ( yieldMany testInputData .| toTickData tzEST .| toOrderBook .| trfSample .| sinkList)
+            runConduitPure ( yieldMany testInputData .| toTickData tzEST .| toOrderBook .| trfSample Minute .| sinkList)
         `shouldBe` [
             OrderBook {date = (read "2014-10-28 11:51:00" :: UTCTime), bidVolume = Just $ Volume 11, bidPrice = Just $ Price 8940.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4},
             OrderBook {date = (read "2014-10-28 11:53:00" :: UTCTime), bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8945.0, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5},
             OrderBook {date = (read "2014-10-28 11:54:00" :: UTCTime), bidVolume = Just $ Volume 8, bidPrice = Just $ Price 8938.5, askPrice = Just $ Price 8950.0, askVolume = Just $ Volume 5}
         ]
  
+    context "second sampling" $
+        it "should produce a list of second sampled orderbooks" $
+            runConduitPure ( yieldMany testInputData2 .| toTickData tzEST .| toOrderBook .| trfSample Second .| takeC 3 .| sinkList)
+        `shouldBe` [
+            OrderBook {date = mkUTC "2014-10-28 11:50:01", bidVolume = Just $ Volume 10, bidPrice = Just $ Price 8938.0, askPrice = Nothing, askVolume = Nothing},
+            OrderBook {date = mkUTC "2014-10-28 11:50:47", bidVolume = Just $ Volume 5, bidPrice = Just $ Price 8937.0, askPrice = Nothing, askVolume = Nothing},
+            OrderBook {date = mkUTC "2014-10-28 11:50:55", bidVolume = Just $ Volume 5, bidPrice = Just $ Price 8937.0, askPrice = Just $ Price 8941.0, askVolume = Just $ Volume 4}
+        ]
     context "grouped by minute" $
         let
-            sameMinute orderBook orderBookNext = extractMinute (date orderBook) == extractMinute (date orderBookNext)
+            sameMinute orderBook orderBookNext = getPeriod Minute (date orderBook) == getPeriod Minute (date orderBookNext)
         in
         it "should produce a list of grouped orderbooks" $
             runConduitPure ( yieldMany testInputData .| toTickData tzEST .| toOrderBook .| groupBy sameMinute .| sinkList)
@@ -119,6 +136,11 @@ spec = describe "Testing reading ticks using pipes" $ do
             ]
         ]
  
+    context "extracting seconds" $
+        it "should return seconds component" $ 
+            getPeriod Second (read "2014-10-28 06:50:14" :: UTCTime)
+        `shouldBe` (14 :: Int)
+
     context "minute sampling" $
         it "should return next round minute" $ 
             ceilingMinute (read "2014-10-28 06:50:14" :: UTCTime)
