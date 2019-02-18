@@ -7,6 +7,9 @@ import Prelude (print)
 import Data.Data (Data, Typeable)
 import Data.Timezones.TZ (tzParse)
 import Data.ByteString (ByteString)
+
+
+import Conduit (ConduitT, MonadThrow)
 import Conduit ((.|))
 import Conduit (runConduit, runResourceT)
 
@@ -15,8 +18,11 @@ import System.Console.CmdArgs.Explicit (Mode)
 
 import qualified Data.Conduit.Combinators as Cmb (print, last)
 
+import Data.Time (TimeZone)
+
 import OpDesign.TicksReader (ticksFile)
 import OpDesign.OrderBookStream (cleanStrTicks, toOrderBook, toTickData, trfSample, onlyValid, SamplePeriod(..))
+import OpDesign.TradingStrategy (scalpingStrategy, LimitOrder, SinglePortfolioPosition)
 
 -----------------------------------------------------------
 
@@ -41,5 +47,13 @@ main = do
     print $ "timezone used for interpreting archive file content: '" ++ (timezone parsedArguments) ++ "'"
     strTicks <- ticksFile (ticks parsedArguments) (pattern parsedArguments)
     let tz = tzParse $ timezone parsedArguments
-    output <- runResourceT $ runConduit (strTicks .| cleanStrTicks .| toTickData tz .| toOrderBook .| trfSample Second .| onlyValid .| Cmb.print )
+    output <- runResourceT $ runConduit ( strTicks .| ticksProcessing tz .| Cmb.print )
     print $ output
+
+ticksProcessing :: MonadThrow m => TimeZone -> ConduitT ByteString (LimitOrder, SinglePortfolioPosition) m ()
+ticksProcessing tz = cleanStrTicks
+    .| toTickData tz
+    .| toOrderBook
+    .| trfSample Second
+    .| onlyValid
+    .| scalpingStrategy
