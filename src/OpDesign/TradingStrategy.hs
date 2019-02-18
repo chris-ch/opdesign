@@ -1,11 +1,13 @@
 module OpDesign.TradingStrategy where
 
-import Prelude (Eq, Show, Monad, Rational, Integer, Maybe(..))
-import Prelude (($), (/=), (&&), (>=), (<), (==), (+), (-))
-import Prelude (return, otherwise)
+import Prelude (Eq, Show, Monad, Rational, Integer, Double, Maybe(..))
+import Prelude (($), (/=), (&&), (>=), (<), (==), (+), (-), (++))
+import Prelude (return, otherwise, show)
 
 import Data.Time.LocalTime (TimeOfDay(..))
 import Data.Time (UTCTime(..))
+
+import Numeric (fromRat, showFFloat)
 
 import Control.Monad.State (get, put, lift)
 import Control.Monad.Trans.State.Strict (StateT)
@@ -23,7 +25,12 @@ data LimitOrder = LimitOrder {
     volume :: Integer,
     price :: Rational,
     direction :: TradeDirection
-} deriving (Eq, Show)
+} deriving (Eq)
+
+instance Show LimitOrder where
+    show (LimitOrder ts vol px dir) = "< LO: " ++ (show ts) ++ " - " ++ (show dir) ++ " " ++ (show vol) ++ " @ " ++ (toFloatStr (fromRat px :: Double)) "" ++ " >"
+        where
+            toFloatStr = showFFloat (Just 6)
 
 data SinglePortfolioPosition = SinglePortfolioPosition {
     quantity :: Integer
