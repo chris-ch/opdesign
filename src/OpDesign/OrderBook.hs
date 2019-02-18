@@ -2,7 +2,7 @@ module OpDesign.OrderBook where
 
 import Prelude (Show, Maybe(..), Bool(..), String, Float, Eq, Rational, Int, Ord, Double)
 import Prelude (truncate, head, read, show, otherwise, fst, map, error)
-import Prelude (($), (==), (!!), (.), (++))
+import Prelude (($), (==), (/=), (!!), (.), (++), (&&), (>))
 
 import Data.Time (UTCTime, TimeZone)
 import Data.Timezones.TZ (asUTC)
@@ -62,7 +62,7 @@ data OrderBook = OrderBook {
     askVolume :: Maybe Volume} deriving (Show, Eq)
 
 isValid :: OrderBook -> Bool
-isValid OrderBook {date=_, bidVolume=Just _, bidPrice=Just _, askPrice=Just _, askVolume=Just _ } = True
+isValid OrderBook {date=_, bidVolume=Just (Volume bv), bidPrice=Just (Price bp), askPrice=Just (Price ap), askVolume=Just (Volume av) } = (bv > 0) && (av > 0) && (ap > 0) && (bp /= ap)
 isValid _ = False
 
 emptyOrderBook :: UTCTime -> OrderBook

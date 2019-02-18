@@ -16,7 +16,7 @@ import System.Console.CmdArgs.Explicit (Mode)
 import qualified Data.Conduit.Combinators as Cmb (print, last)
 
 import OpDesign.TicksReader (ticksFile)
-import OpDesign.OrderBookStream (cleanStrTicks, toOrderBook, toTickData)
+import OpDesign.OrderBookStream (cleanStrTicks, toOrderBook, toTickData, trfSample, onlyValid, SamplePeriod(..))
 
 -----------------------------------------------------------
 
@@ -41,5 +41,5 @@ main = do
     print $ "timezone used for interpreting archive file content: '" ++ (timezone parsedArguments) ++ "'"
     strTicks <- ticksFile (ticks parsedArguments) (pattern parsedArguments)
     let tz = tzParse $ timezone parsedArguments
-    output <- runResourceT $ runConduit (strTicks .| cleanStrTicks .| toTickData tz .| toOrderBook .| Cmb.last )
+    output <- runResourceT $ runConduit (strTicks .| cleanStrTicks .| toTickData tz .| toOrderBook .| trfSample Second .| onlyValid .| Cmb.print )
     print $ output

@@ -15,7 +15,7 @@ import Data.Time.LocalTime (TimeOfDay(..), todMin, timeToTimeOfDay, timeOfDayToT
 import Data.Time.Calendar ()
 import Conduit ((.|))
 import Conduit (ConduitT, await, yield, evalStateC)
-import Conduit (mapC, decodeUtf8C, scanlC)
+import Conduit (mapC, decodeUtf8C, scanlC, filterC)
 import Data.Conduit.List (groupBy)
 import Conduit (MonadThrow)
 
@@ -24,7 +24,7 @@ import Control.Monad.Trans.State.Strict (StateT)
 
 import Data.Time (TimeZone, NominalDiffTime)
 
-import OpDesign.OrderBook (OrderBook(..), TickData, updateOrderBook, fromTickData, fromPrice, parseTickData)
+import OpDesign.OrderBook (OrderBook(..), TickData, updateOrderBook, fromTickData, fromPrice, parseTickData, isValid)
 
 scanl1C :: Monad m => (a -> a -> a) -> ConduitT a a m ()
 scanl1C f = await >>= maybe (return ()) (scanlC f)
@@ -114,3 +114,5 @@ sequencer period nextVal = do
     yield nextVal
     sequencer period (addUTCTime period nextVal)
 
+onlyValid :: (Monad m) => ConduitT OrderBook OrderBook m ()
+onlyValid = filterC isValid
