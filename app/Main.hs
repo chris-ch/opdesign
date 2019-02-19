@@ -1,9 +1,9 @@
 module Main where
     
-import Prelude (Show, FilePath, String, IO)
+import Prelude (Show, FilePath, String, IO, Maybe(..))
 import Data.Void (Void)
-import Prelude (($), (++), (*>))
-import Prelude (print, show)
+import Prelude (($), (++), (*>), (<$>), (<*>))
+import Prelude (print, show, appendFile, return)
 
 import Data.Data (Data, Typeable)
 import Data.Timezones.TZ (tzParse)
@@ -12,7 +12,7 @@ import Data.ByteString (ByteString)
 
 import Conduit (ConduitT, MonadThrow, ZipSink(..))
 import Conduit ((.|))
-import Conduit (runConduit, runResourceT, runConduitRes, getZipSink, sinkFile, mapM_C, mapC)
+import Conduit (runConduit, runResourceT, runConduitRes, getZipSink, sinkFile, mapM_C, mapC, await, yield, liftIO)
 
 import System.Console.CmdArgs (CmdArgs, def, help, opt, typ, argPos, cmdArgsMode, cmdArgsRun, (&=))
 import System.Console.CmdArgs.Explicit (Mode)
@@ -21,7 +21,7 @@ import qualified Data.Conduit.Combinators as Cmb (print, last)
 
 import Data.Time (TimeZone)
 
-import Data.Conduit.Log (log)
+--import Data.Conduit.Log (log)
 import Data.Conduit.Binary (conduitFile)
 import OpDesign.TicksReader (ticksFile)
 import OpDesign.OrderBook (OrderBook)
@@ -52,9 +52,7 @@ main = do
     strTicks <- ticksFile (ticks parsedArguments) (pattern parsedArguments)
     let tz = tzParse $ timezone parsedArguments
     runConduitRes ( strTicks
-        .| ticksProcessing tz
-        .|  scalpingStrategy
-        .| Cmb.print
+        .| ticksProcessing tz .| logC "ob.log" .| scalpingStrategy .| Cmb.print
         )
 
 ticksProcessing :: MonadThrow m => TimeZone -> ConduitT ByteString OrderBook m ()
@@ -64,3 +62,12 @@ ticksProcessing tz = cleanStrTicks
     .| trfSample Second
     .| onlyValid
 
+
+logC logName = do
+    maybeItem <-  await
+    case maybeItem of
+        Nothing -> return ()
+        Just item -> do
+            liftIO (appendFile logName (show item))
+            yield item
+            logC logName
