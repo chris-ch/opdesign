@@ -1,22 +1,26 @@
 module Data.Conduit.Log where
 
 import Prelude (Maybe(..), FilePath, Show)
-import Prelude (show, appendFile, writeFile, return)
-import Prelude (($), (++))
+import Prelude (show, return)
+import Prelude (($))
+import System.IO (hPutStrLn, hClose, openFile, IOMode(..))
+
 import Conduit (ConduitT, MonadIO)
 import Conduit (await, liftIO, yield)
 
 logC :: (MonadIO m, Show a) => FilePath -> ConduitT a a m ()
 logC filename = do
-    liftIO $ writeFile filename ""
-    go filename
+    handle <- liftIO $ openFile filename WriteMode
+    go handle
     where
-        go f = do
+        go h = do
             maybeItem <-  await
             case maybeItem of
-                Nothing -> return ()
+                Nothing -> do
+                    liftIO $ hClose h
+                    return ()
                 Just item -> do
-                    liftIO $ appendFile filename ((show item) ++ "\n")
+                    liftIO $ hPutStrLn h (show item)
                     yield item
-                    go f
+                    go h
             
