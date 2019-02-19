@@ -13,4 +13,5 @@ out
 stack.yaml
 opdesign.cabal
 localdata
+*.log
 

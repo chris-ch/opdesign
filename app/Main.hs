@@ -1,32 +1,30 @@
 module Main where
     
-import Prelude (Show, FilePath, String, IO, Maybe(..))
-import Data.Void (Void)
-import Prelude (($), (++), (*>), (<$>), (<*>))
-import Prelude (print, show, appendFile, return)
+import Prelude (Show, FilePath, String, IO)
+import Prelude (($), (++))
+import Prelude (print)
 
 import Data.Data (Data, Typeable)
 import Data.Timezones.TZ (tzParse)
 import Data.ByteString (ByteString)
 
 
-import Conduit (ConduitT, MonadThrow, ZipSink(..))
+import Conduit (ConduitT, MonadThrow)
 import Conduit ((.|))
-import Conduit (runConduit, runResourceT, runConduitRes, getZipSink, sinkFile, mapM_C, mapC, await, yield, liftIO)
+import Conduit (runConduitRes)
 
 import System.Console.CmdArgs (CmdArgs, def, help, opt, typ, argPos, cmdArgsMode, cmdArgsRun, (&=))
 import System.Console.CmdArgs.Explicit (Mode)
 
-import qualified Data.Conduit.Combinators as Cmb (print, last)
+import qualified Data.Conduit.Combinators as Cmb (print)
 
 import Data.Time (TimeZone)
 
---import Data.Conduit.Log (log)
-import Data.Conduit.Binary (conduitFile)
+import Data.Conduit.Log (logC)
 import OpDesign.TicksReader (ticksFile)
 import OpDesign.OrderBook (OrderBook)
 import OpDesign.OrderBookStream (cleanStrTicks, toOrderBook, toTickData, trfSample, onlyValid, SamplePeriod(..))
-import OpDesign.TradingStrategy (scalpingStrategy, LimitOrder, SinglePortfolioPosition)
+import OpDesign.TradingStrategy (scalpingStrategy)
 
 -----------------------------------------------------------
 
@@ -61,13 +59,3 @@ ticksProcessing tz = cleanStrTicks
     .| toOrderBook
     .| trfSample Second
     .| onlyValid
-
-
-logC logName = do
-    maybeItem <-  await
-    case maybeItem of
-        Nothing -> return ()
-        Just item -> do
-            liftIO (appendFile logName (show item))
-            yield item
-            logC logName
