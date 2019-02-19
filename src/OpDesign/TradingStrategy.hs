@@ -1,7 +1,7 @@
 module OpDesign.TradingStrategy where
 
 import Prelude (Eq, Show, Monad, Rational, Integer, Double, Maybe(..))
-import Prelude (($), (/=), (&&), (>=), (<), (==), (+), (-), (++))
+import Prelude (($), (&&), (>=), (<), (>), (==), (+), (-), (++))
 import Prelude (return, otherwise, show)
 
 import Data.Time.LocalTime (TimeOfDay(..))
@@ -15,7 +15,7 @@ import Control.Monad.Trans.State.Strict (StateT)
 import Conduit (await, yield, evalStateC)
 import Conduit (ConduitT)
 
-import OpDesign.OrderBook (OrderBook(..), fromPrice)
+import OpDesign.OrderBook (OrderBook(..), Price, fromPrice)
 import OpDesign.OrderBookStream (extractTime)
 
 data TradeDirection = Buy | Sell deriving (Eq, Show)
@@ -41,7 +41,7 @@ updatePosition portfolio order
     | direction order == Buy    = portfolio { quantity = quantity portfolio + volume order}
     | otherwise                 = portfolio { quantity = quantity portfolio - volume order}
 
-type StateScalpingStrategy = SinglePortfolioPosition
+type StateScalpingStrategy = (SinglePortfolioPosition, Maybe LimitOrder)
 
 scalpingStrategyC :: (Monad m) => ConduitT OrderBook (LimitOrder, SinglePortfolioPosition) (StateT StateScalpingStrategy m) ()
 scalpingStrategyC = do
@@ -49,39 +49,58 @@ scalpingStrategyC = do
         case input of
             Nothing -> return ()
             Just orderBook -> do
-                prevPortfolioPosition <- lift get :: (Monad m) => ConduitT OrderBook (LimitOrder, SinglePortfolioPosition) (StateT SinglePortfolioPosition m) SinglePortfolioPosition
-                let maybeOrder = evaluateStrategy prevPortfolioPosition orderBook
+                (portfolioPosition, maybeLastOrder) <- lift get
+                let maybeOrder = evaluateStrategy portfolioPosition orderBook maybeLastOrder
                 case maybeOrder of
 
                     Just order -> do
-                        lift $ put (updatePosition prevPortfolioPosition order)
-                        yield (order, updatePosition prevPortfolioPosition order)
+                        lift $ put (updatePosition portfolioPosition order, Just order)
+                        yield (order, updatePosition portfolioPosition order)
 
                     Nothing -> do
-                        lift $ put prevPortfolioPosition
+                        lift $ put (portfolioPosition, maybeLastOrder)
                         return ()
 
                 scalpingStrategyC
 
         where
-            evaluateStrategy prevPortfolioPosition orderBook = case orderBook of
-                OrderBook {bidVolume = Just _, bidPrice = Just bp, askPrice = Just ap, askVolume = Just _}
-                    | quantity prevPortfolioPosition == 0 && extractTime (date orderBook) >= (TimeOfDay 20 45 0) && extractTime (date orderBook) < (TimeOfDay 20 50 0) -> 
-                        Just $ LimitOrder {
-                            timestamp = date orderBook, 
-                            volume = 1, 
-                            price = fromPrice ap, 
-                            direction = Buy
-                            }
-                    | quantity prevPortfolioPosition /= 0 && extractTime (date orderBook) >= (TimeOfDay 20 50 0) ->
-                        Just $ LimitOrder {
-                            timestamp = date orderBook,
-                            volume = 1,
-                            price = fromPrice bp,
-                            direction = Sell
-                            }
-                    | otherwise -> Nothing
+            evaluateStrategy portfolioPosition orderBook maybeLastOrder = case orderBook of
+                OrderBook {bidVolume = Just _, bidPrice = Just bp, askPrice = Just ap, askVolume = Just _} -> case quantity portfolioPosition of
+                    -- No position
+                    0   | extractTime (date orderBook) >= (TimeOfDay 16 30 0) && extractTime (date orderBook) < (TimeOfDay 20 30 0) -> 
+                            -- Enters position
+                            Just $ buyOrder (date orderBook) 1 ap
+                        ------
+                        | otherwise -> Nothing
+                        ------
+                    -- In position
+                    _   | extractTime (date orderBook) >= (TimeOfDay 20 30 0) ->
+                        -- Liquidate
+                        Just $ sellOrder (date orderBook) 1 bp
+                        ------
+                        | otherwise ->  case maybeLastOrder of
+                            -- Tries to liquidate at a profit
+                            Just lastOrder  -> if (fromPrice bp) > (price lastOrder) then Just $ sellOrder (date orderBook) 1 bp else Nothing
+                            Nothing         -> Nothing
+                        ------
+                -- Invalid order book
                 _ -> Nothing
 
+sellOrder :: UTCTime -> Integer -> Price -> LimitOrder
+sellOrder ts vol px = LimitOrder {
+    timestamp = ts,
+    volume = vol,
+    price = fromPrice px,
+    direction = Sell
+}
+
+buyOrder :: UTCTime -> Integer -> Price -> LimitOrder
+buyOrder ts vol px = LimitOrder {
+    timestamp = ts,
+    volume = vol,
+    price = fromPrice px,
+    direction = Buy
+}
+
 scalpingStrategy :: (Monad m) => ConduitT OrderBook (LimitOrder, SinglePortfolioPosition) m ()
-scalpingStrategy = evalStateC (SinglePortfolioPosition {quantity = 0}) $ scalpingStrategyC
+scalpingStrategy = evalStateC (SinglePortfolioPosition {quantity = 0}, Nothing) $ scalpingStrategyC

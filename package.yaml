@@ -22,6 +22,9 @@ extra-source-files:
 - README.md
 - ChangeLog.md
 
+data-files:
+- data/sampleticks/*.csv
+
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
 # category:            markets
@@ -66,8 +69,8 @@ executables:
 
 tests:
   opdesign-test:
-    main:                Spec.hs
-    source-dirs:         test
+    main:             Spec.hs
+    source-dirs:      test
     ghc-options:
     - -threaded
     - -rtsopts

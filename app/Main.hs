@@ -1,17 +1,18 @@
 module Main where
     
 import Prelude (Show, FilePath, String, IO)
-import Prelude (($), (++))
-import Prelude (print)
+import Data.Void (Void)
+import Prelude (($), (++), (*>))
+import Prelude (print, show)
 
 import Data.Data (Data, Typeable)
 import Data.Timezones.TZ (tzParse)
 import Data.ByteString (ByteString)
 
 
-import Conduit (ConduitT, MonadThrow)
+import Conduit (ConduitT, MonadThrow, ZipSink(..))
 import Conduit ((.|))
-import Conduit (runConduit, runResourceT)
+import Conduit (runConduit, runResourceT, runConduitRes, getZipSink, sinkFile, mapM_C, mapC)
 
 import System.Console.CmdArgs (CmdArgs, def, help, opt, typ, argPos, cmdArgsMode, cmdArgsRun, (&=))
 import System.Console.CmdArgs.Explicit (Mode)
@@ -20,7 +21,10 @@ import qualified Data.Conduit.Combinators as Cmb (print, last)
 
 import Data.Time (TimeZone)
 
+import Data.Conduit.Log (log)
+import Data.Conduit.Binary (conduitFile)
 import OpDesign.TicksReader (ticksFile)
+import OpDesign.OrderBook (OrderBook)
 import OpDesign.OrderBookStream (cleanStrTicks, toOrderBook, toTickData, trfSample, onlyValid, SamplePeriod(..))
 import OpDesign.TradingStrategy (scalpingStrategy, LimitOrder, SinglePortfolioPosition)
 
@@ -47,13 +51,16 @@ main = do
     print $ "timezone used for interpreting archive file content: '" ++ (timezone parsedArguments) ++ "'"
     strTicks <- ticksFile (ticks parsedArguments) (pattern parsedArguments)
     let tz = tzParse $ timezone parsedArguments
-    output <- runResourceT $ runConduit ( strTicks .| ticksProcessing tz .| Cmb.print )
-    print $ output
+    runConduitRes ( strTicks
+        .| ticksProcessing tz
+        .|  scalpingStrategy
+        .| Cmb.print
+        )
 
-ticksProcessing :: MonadThrow m => TimeZone -> ConduitT ByteString (LimitOrder, SinglePortfolioPosition) m ()
+ticksProcessing :: MonadThrow m => TimeZone -> ConduitT ByteString OrderBook m ()
 ticksProcessing tz = cleanStrTicks
     .| toTickData tz
     .| toOrderBook
     .| trfSample Second
     .| onlyValid
-    .| scalpingStrategy
+

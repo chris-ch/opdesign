@@ -1,8 +1,10 @@
 module OpDesign.TradingStrategySpec where
 
 import Prelude (String, Monad, Maybe(..), Int, Rational)
-import Prelude (read, lines)
+import Prelude (read, lines, readFile, length)
 import Prelude (($), (<=))
+
+import Paths_opdesign (getDataFileName)
 
 import SpecHelper
 
@@ -136,3 +138,10 @@ spec = describe "Testing trading strategies" $ do
             ( jTestOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                     jTestOB "2014-10-28 11:53:14" 60  24.40 24.50 65                                               ),
             ( jTestOB "2014-10-28 11:53:05" 8  8938.5 8950.0 5,                                                     jTestOB "2014-10-28 11:53:25" 78  24.38 24.50 65                                               )
         ]
+
+    context "access data file" $
+        it "should access test data file" $
+            do
+                file <- getDataFileName "data/sampleticks/20150615.csv"
+                content <- readFile file
+                length content `shouldBe` 7037177
