@@ -2,7 +2,7 @@ module Data.Conduit.Log where
 
 import Prelude (Maybe(..), IO, FilePath, Show)
 import Prelude (show, appendFile, return)
-import Prelude (($))
+import Prelude (($), (++))
 import Conduit (ConduitT, MonadIO)
 import Conduit (await, liftIO, yield)
 
@@ -12,7 +12,7 @@ logC filename = do
     case maybeItem of
         Nothing -> return ()
         Just item -> do
-            liftIO (appendFile filename (show item))
+            liftIO (appendFile filename ((show item) ++ "\n"))
             yield item
             logC filename
             
