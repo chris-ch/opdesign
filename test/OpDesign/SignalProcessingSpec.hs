@@ -2,12 +2,13 @@ module OpDesign.SignalProcessingSpec where
 
 import SpecHelper
 
-import Prelude (Int, Integer, Rational, Monad)
-import Prelude (zipWith, drop, maybe, return)
+import Prelude (Int, Integer, Rational, Monad, Maybe(..), Rational(..), Float)
+import Prelude (zipWith, drop, maybe, return, fromIntegral, fromInteger, fromRational)
 import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=), (==))
 import Control.Monad.State (State, evalState, get, put)
 
-import Data.Void()
+import Data.Ratio ((%))
+
 import Conduit (ConduitT)
 import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC)
 import Conduit (await, scanlC, foldlC, dropC, slidingWindowC, sinkList)
@@ -20,7 +21,8 @@ import Data.Conduit.List()
 import Data.Conduit.Combinators()
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Signal, genSinusoid, shift, operator, genStep, genSquare, genConstant, tfNegate, tfIntegrate, tfIIR, genRandom, tfGroupBy, tfCounter, genSequence)
+import OpDesign.SignalProcessing (Transfer, Signal, genSinusoid, shift, shift', operator, genStep, genSquare, genConstant, genSequence)
+import OpDesign.SignalProcessing (tfNegate, tfIntegrate, tfIIR, genRandom, tfGroupBy, tfCounter, tfScale)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -172,6 +174,86 @@ spec = describe "Testing signal processing operators" $ do
         in
         it "output = input * delta" $
             runConduitPure ( operator (*) input1 input2 .| sinkList )
+        `shouldBe` expected
+
+    context "shifting one item" $
+        let
+            input :: Signal (Maybe Int)
+            input = yieldMany [Just 1, Just 2, Just 3, Just 4]
+
+            expected :: [Maybe Int]
+            expected = [Nothing, Just 1, Just 2, Just 3, Just 4]
+        in
+        it "shifted input" $
+            runConduitPure ( input .| shift' Nothing .| sinkList )
+        `shouldBe` expected
+
+    context "mixing signal with a shift of itself" $
+        let
+            input1 :: Signal (Maybe Int)
+            input1 = yieldMany [Just 1, Just 2, Just 3, Just 4, Just 5, Just 6]
+
+            input2 :: Signal (Maybe Int)
+            input2 = input1 .| shift' Nothing
+
+            opAdd :: (Maybe Int) -> (Maybe Int) -> (Maybe Int)
+            opAdd (Just a) (Just b) = Just (a + b)
+            opAdd _ _ = Nothing
+
+            expected = [Nothing, Just 3, Just 5, Just 7, Just 9, Just 11]
+        in
+        it "output = odd numbers" $
+            runConduitPure ( operator opAdd input1 input2 .| sinkList )
+        `shouldBe` expected
+
+    context "loopback shifted signal into adder" $
+        let
+            input :: Signal (Maybe Int)
+            input = yieldMany [Just 1, Just 2, Just 3, Just 4, Just 5, Just 6]
+
+            output :: Signal (Maybe Int)
+            output = operator opAdd input ( output .| shift' (Just 0) )
+
+            opAdd :: (Maybe Int) -> (Maybe Int) -> (Maybe Int)
+            opAdd (Just a) (Just b) = Just (a + b)
+            opAdd _ _ = Nothing
+
+            expected = [Just 1, Just 3, Just 6, Just 10, Just 15, Just 21]
+        in
+        it "y(n) = x(n) + y(n-1), y(0) = 0" $
+            runConduitPure ( output .| sinkList )
+        `shouldBe` expected
+
+    context "integrating input" $
+        let
+            x :: Signal (Maybe Rational)
+            x = genSinusoid 100 200 .| mapC (\val -> Just (fromIntegral val)) .| takeC 120
+            
+            y :: Signal (Maybe Rational)
+            y = operator opAdd yPrev (operator opAdd x xPrev .| tfScale (5 % 10))
+
+            xPrev = x .| shift' (Just 0)
+            yPrev = y .| shift' (Just 0)
+
+            opAdd :: (Maybe Rational) -> (Maybe Rational) -> (Maybe Rational)
+            opAdd (Just a) (Just b) = Just (a + b)
+            opAdd _ _ = Nothing
+
+            toFloat :: Transfer (Maybe Rational) Float
+            toFloat = do
+                maybeVal <- await
+                case maybeVal of
+                    Nothing -> return ()
+                    Just val -> case val of
+                        Nothing -> toFloat
+                        Just val2 -> do
+                            yield (fromRational val2)
+                            toFloat
+                        
+            expected = [0.1, 0.2]
+        in
+        it "y = y_prev + 0.5 * (x + x_prev), y_0 = 0" $
+            runConduitPure ( y .| toFloat .| sinkList )
         `shouldBe` expected
 
     context "IIR filter with scanlC" $

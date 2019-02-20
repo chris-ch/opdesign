@@ -27,6 +27,19 @@ shift count signal = yield (fromInteger 0) >> signal .| slidingWindowC (count + 
         delta [_] = 0
         delta [] = 0 
 
+shift' :: Maybe a -> Transfer (Maybe a) (Maybe a)
+shift' initItem = do
+    yield initItem
+    keepGoing
+    where
+        keepGoing = do
+            maybeItem <- await
+            case maybeItem of
+                Nothing -> return ()
+                Just item -> do
+                    yield $ item
+                    keepGoing
+
 operator :: (a -> a -> a) -> Signal a -> Signal a -> Signal a
 operator func signal1 signal2 = DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
 
@@ -63,6 +76,12 @@ opSub input1 input2 = operator (-) input1 input2
 
 opMul :: (Num a) => Signal a -> Signal a -> Signal a
 opMul input1 input2 = operator (*) input1 input2
+
+tfScale :: (Num a) => a -> Transfer (Maybe a) (Maybe a)
+tfScale scale = mapC (\x -> case x of
+    Just val -> Just (scale * val)
+    Nothing -> Nothing
+    ) 
 
 type StateIntegrator = (Rational, Rational)
 integratorC :: (Monad m) => ConduitT Rational Rational (StateT StateIntegrator m) ()
@@ -116,14 +135,14 @@ testMergeSource = mergeSource
 
 counterC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
 counterC = do
-        x0 <-  await
-        case x0 of
-            Nothing -> return ()
-            Just _ -> do
-                lift $ modify (+1)
-                r <- lift get
-                yield r
-                counterC
+    x0 <-  await
+    case x0 of
+        Nothing -> return ()
+        Just _ -> do
+            lift $ modify (+1)
+            r <- lift get
+            yield r
+            counterC
 
 tfCounter :: (Num a) => Integer -> Transfer a Integer
 tfCounter start = evalStateC start counterC
