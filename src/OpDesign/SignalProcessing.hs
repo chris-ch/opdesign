@@ -1,11 +1,11 @@
 module OpDesign.SignalProcessing where
 
-import Prelude (Int, Monad, Num, Double, Rational, Maybe(..), Bool, Integer)
-import Prelude (replicate, pi, round, cycle, fromIntegral, fromInteger, sin, return, init, sum, zipWith)
-import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>))
+import Prelude (Int, Monad, Applicative, Num, Double, Rational, Maybe(..), Bool(..), Integer, Show, Eq, Functor)
+import Prelude (replicate, pi, round, cycle, fromIntegral, sin, return, init, sum, zipWith, fmap, pure)
+import Prelude (($), (*), (++), (<*>), (<$>), (-), (+), (/), (>>=))
 
 import Conduit (ConduitT, Identity)
-import Conduit (yield, yieldMany, mapC, slidingWindowC, evalStateC, await, mergeSource)
+import Conduit (yield, yieldMany, mapC, evalStateC, await, mergeSource)
 import Conduit ((.|))
 import Data.Conduit.List (groupBy)
 
@@ -16,19 +16,29 @@ import System.Random (randomRs, mkStdGen)
 
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-type Signal a = ConduitT () a Identity ()
+type Generator a = ConduitT () a Identity ()
 type Transfer a b = ConduitT a b Identity ()
 
-shift :: (Num a) => Int -> Signal a -> Signal a
-shift count signal = yield (fromInteger 0) >> signal .| slidingWindowC (count + 1) .| mapC delta
-    where
-        delta :: (Num a) => [a] -> a
-        delta (m:n:_) = n - m 
-        delta [_] = 0
-        delta [] = 0 
+data Signal a = Undefined | Signal a deriving (Show, Eq)
 
-shift' :: Maybe a -> Transfer (Maybe a) (Maybe a)
-shift' initItem = do
+instance Functor Signal where
+    fmap f signal = case signal of
+        Undefined       -> Undefined
+        Signal value    -> Signal $ f value
+
+instance Applicative Signal where
+      pure = Signal
+      Undefined <*> _ = Undefined
+      (Signal f) <*> something = fmap f something
+
+instance Monad Signal where
+    return = Signal
+    signal >>= f = case signal of
+        Undefined       -> Undefined
+        Signal value    -> f value
+
+shift :: (Signal a) -> Transfer (Signal a) (Signal a)
+shift initItem = do
     yield initItem
     keepGoing
     where
@@ -40,48 +50,93 @@ shift' initItem = do
                     yield $ item
                     keepGoing
 
-operator :: (a -> a -> a) -> Signal a -> Signal a -> Signal a
-operator func signal1 signal2 = DC.getZipSource $ func <$> DC.ZipSource signal1 <*> DC.ZipSource signal2
+operator :: (a -> a -> a) -> Generator (Signal a) -> Generator (Signal a) -> Generator(Signal a)
+operator func source1 source2 = DC.getZipSource $ applyFunc <$> DC.ZipSource source1 <*> DC.ZipSource source2
+                    where
+                        applyFunc (Signal a) (Signal b) = Signal (func a b)
+                        applyFunc _ _ = Undefined
 
 -- period is measured in number of samples
-genSinusoid :: Int -> Int -> Signal Int
-genSinusoid period amplitude = yieldMany [round ( (fromIntegral amplitude) * sin (scale period n) ) | n  <- [0..]]
+genSinusoid :: Int -> Int -> Generator (Signal Int)
+genSinusoid period amplitude = yieldMany [round ( (fromIntegral amplitude) * sin (scale period n) ) | n  <- [0..]] .| mapC Signal
     where
         scale :: Int -> Int -> Double
         scale m n = 2 * pi * fromIntegral n / fromIntegral m
 
 -- delay is measured in number of samples
-genStep :: Int -> Signal Int
-genStep delay = yieldMany $ (replicate delay 0) ++ cycle [1]
+genStep :: Int -> Generator (Signal Int)
+genStep delay = (yieldMany ((replicate delay 0) ++ cycle [1])) .| mapC Signal
 
 -- countZero: counts how many samples are at zero
 -- countOne: counts how many samples ar at one
-genSquare :: Int -> Int -> Signal Int
-genSquare countZero countOne = yieldMany $ cycle $ (replicate countZero 0) ++ (replicate countOne 1)
+genSquare :: Int -> Int -> Generator (Signal Int)
+genSquare countZero countOne = (yieldMany $ cycle $ (replicate countZero 0) ++ (replicate countOne 1)) .| mapC Signal
 
-genConstant :: (Num a) => a -> Signal a
-genConstant k = yieldMany $ cycle [k]
+genConstant :: (Num a) => a -> Generator (Signal a)
+genConstant k = (yieldMany $ cycle [k]) .| mapC Signal
 
-opNegate :: (Num a) => Signal a -> Signal a
-opNegate = operator (-) (genConstant 0)
+tfNegate :: (Num a) => Transfer (Signal a) (Signal a)
+tfNegate =  mapC opposite where
+        opposite Undefined = Undefined
+        opposite (Signal value) = Signal (-value)
 
-tfNegate :: (Num a) => Transfer a a
-tfNegate =  mapC (\x -> -x) 
-
-opAdd :: (Num a) => Signal a -> Signal a -> Signal a
+opAdd :: (Num a) => Generator (Signal a) -> Generator (Signal a) -> Generator (Signal a)
 opAdd input1 input2 = operator (+) input1 input2
 
-opSub :: (Num a) => Signal a -> Signal a -> Signal a
+opSub :: (Num a) => Generator (Signal a) -> Generator (Signal a) -> Generator (Signal a)
 opSub input1 input2 = operator (-) input1 input2
 
-opMul :: (Num a) => Signal a -> Signal a -> Signal a
+opMul :: (Num a) => Generator (Signal a) -> Generator (Signal a) -> Generator (Signal a)
 opMul input1 input2 = operator (*) input1 input2
 
-tfScale :: (Num a) => a -> Transfer (Maybe a) (Maybe a)
+tfScale :: (Num a) => a -> Transfer (Signal a) (Signal a)
 tfScale scale = mapC (\x -> case x of
-    Just val -> Just (scale * val)
-    Nothing -> Nothing
+    Signal value -> Signal (scale * value)
+    Undefined -> Undefined
     ) 
+
+-- random number generator
+genRandom :: (Int, Int) -> Int -> Generator (Signal Int)
+genRandom (bottom, top) seed = (yieldMany (randomRs (bottom, top) (mkStdGen seed))) .| mapC Signal
+
+tfGroupBy :: (a -> a -> Bool) -> Transfer (Signal a) [Signal a]
+tfGroupBy func = (groupBy grouper)
+    where
+        grouper (Signal val1) (Signal val2) = func val1 val2
+        grouper Undefined Undefined = True
+        grouper _ _ = False
+
+-- merging source into conduit
+testMergeSource :: (Monad m) => ConduitT () i m ()  -> ConduitT a (i, a) m ()
+testMergeSource = mergeSource
+
+counterC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
+counterC = do
+    x0 <-  await
+    case x0 of
+        Nothing -> return ()
+        Just _ -> do
+            lift $ modify (+1)
+            r <- lift get
+            yield r
+            counterC
+
+tfCounter :: (Num a) => Integer -> Transfer a Integer
+tfCounter start = evalStateC start counterC
+
+genSequence :: (Num a) => a -> Generator (Signal a)
+genSequence nextVal = do
+    yield $ Signal nextVal
+    genSequence (nextVal + 1)
+
+convertC :: (a -> b) -> Transfer (Signal a) (Signal b)
+convertC fromType = mapC converter where
+    converter signal = case signal of
+        Undefined -> Undefined
+        Signal value -> Signal (fromType value)
+
+
+----------------------------------
 
 type StateIntegrator = (Rational, Rational)
 integratorC :: (Monad m) => ConduitT Rational Rational (StateT StateIntegrator m) ()
@@ -121,33 +176,3 @@ filterIIRC coeffsIn coeffsOut = do
 
 tfIIR :: CoefficientsInputsIIR -> CoefficientsOutputsIIR -> StateIIR -> Transfer Rational Rational
 tfIIR coeffsIn coeffsOut (initialIn, initialOut) = evalStateC (initialIn, initialOut) $ filterIIRC coeffsIn coeffsOut
-
--- random number generator
-genRandom :: (Monad m) => (Int, Int) -> Int -> ConduitT () Int m ()
-genRandom (bottom, top) seed = yieldMany (randomRs (bottom, top) (mkStdGen seed))
-
-tfGroupBy :: (a -> a -> Bool) -> Transfer a [a]
-tfGroupBy = groupBy
-
--- merging source into conduit
-testMergeSource :: (Monad m) => ConduitT () i m ()  -> ConduitT a (i, a) m ()
-testMergeSource = mergeSource
-
-counterC :: (MonadState b m, Num a, Num b) => ConduitT a b m ()
-counterC = do
-    x0 <-  await
-    case x0 of
-        Nothing -> return ()
-        Just _ -> do
-            lift $ modify (+1)
-            r <- lift get
-            yield r
-            counterC
-
-tfCounter :: (Num a) => Integer -> Transfer a Integer
-tfCounter start = evalStateC start counterC
-
-genSequence :: (Monad m) => Int -> ConduitT () Int m ()
-genSequence nextVal = do
-    yield nextVal
-    genSequence (nextVal + 1)

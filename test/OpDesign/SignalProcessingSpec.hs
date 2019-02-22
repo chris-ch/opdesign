@@ -2,8 +2,8 @@ module OpDesign.SignalProcessingSpec where
 
 import SpecHelper
 
-import Prelude (Int, Integer, Rational, Monad, Maybe(..), Rational(..), Float)
-import Prelude (zipWith, drop, maybe, return, fromIntegral, fromInteger, fromRational)
+import Prelude (Int, Integer, Rational, Monad, Rational, Float)
+import Prelude (zipWith, drop, maybe, return, fromIntegral, fromRational, fmap)
 import Prelude (($), (<*>), (<$>), (+), (-), (/), (*), (>>), (>>=), (==))
 import Control.Monad.State (State, evalState, get, put)
 
@@ -11,7 +11,7 @@ import Data.Ratio ((%))
 
 import Conduit (ConduitT)
 import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC)
-import Conduit (await, scanlC, foldlC, dropC, slidingWindowC, sinkList)
+import Conduit (await, scanlC, foldlC, slidingWindowC, sinkList)
 import Conduit ((.|))
 
 import Data.List (sum)
@@ -21,8 +21,9 @@ import Data.Conduit.List()
 import Data.Conduit.Combinators()
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
-import OpDesign.SignalProcessing (Transfer, Signal, genSinusoid, shift, shift', operator, genStep, genSquare, genConstant, genSequence)
+import OpDesign.SignalProcessing (Signal(..), Generator, genSinusoid, shift, operator, genStep, genSquare, genConstant, genSequence)
 import OpDesign.SignalProcessing (tfNegate, tfIntegrate, tfIIR, genRandom, tfGroupBy, tfCounter, tfScale)
+import OpDesign.SignalProcessing (opAdd)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -49,10 +50,10 @@ spec = describe "Testing signal processing operators" $ do
 
     context "grouping" $
         let
-            input :: (Monad m) => ConduitT () Int m ()
-            input = yieldMany [1, 1, 0, 1, 1, 1, 1, 0, 0]
-            expected :: [[Int]]
-            expected = [[1, 1], [0], [1, 1, 1, 1], [0, 0]]
+            input :: Generator (Signal Int)
+            input = yieldMany (fmap Signal [1, 1, 0, 1, 1, 1, 1, 0, 0])
+            expected :: [[Signal Int]]
+            expected = [[Signal 1, Signal 1], [Signal 0], [Signal 1, Signal 1, Signal 1, Signal 1], [Signal 0, Signal 0]]
         in
         it "should group identical values" $
             runConduitPure (input .| tfGroupBy (==) .| sinkList)
@@ -70,28 +71,28 @@ spec = describe "Testing signal processing operators" $ do
 
     context "yielding sinusoidal sequence" $
         it "should generate predicted int sequence" $
-            runConduitPure (genSinusoid 100 200 .| takeC 120 .| (dropC 116 >> sinkList))
-        `shouldBe` [169, 175, 181, 186]
+            runConduitPure (genSinusoid 100 200 .| takeC 120 .| sinkList)
+        `shouldBe` fmap Signal [169, 175, 181, 186]
 
     context "yielding step signal" $
         it "should generate predicted int sequence" $
             runConduitPure (genStep 10 .| takeC 20 .| sinkList)
-        `shouldBe` [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1]
+        `shouldBe` fmap Signal [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1]
 
     context "yielding square signal" $
         it "should generate predicted int sequence" $
             runConduitPure (genSquare 8 2 .| takeC 22 .| sinkList)
-        `shouldBe` [0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0]
+        `shouldBe` fmap Signal [0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0]
 
     context "yielding a constant signal" $
         it "should generate predicted int sequence" $
             runConduitPure (genConstant 2 .| takeC 22 .| sinkList)
-        `shouldBe` [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2 :: Integer]
+        `shouldBe` fmap Signal [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2 :: Integer]
 
     context "negates input signal" $
         it "should generate predicted int sequence" $
             runConduitPure (genSquare 8 2 .| tfNegate .| takeC 22 .| sinkList)
-        `shouldBe` [0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,-1,0,0]
+        `shouldBe` fmap Signal [0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,-1,0,0]
 
     context "sliding window" $
         it "should create sliding windows" $
@@ -163,14 +164,14 @@ spec = describe "Testing signal processing operators" $ do
 
     context "operator applied on two sources" $
         let
-            input1 :: Signal Int
-            input1 = yieldMany [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 1, 1]
+            input1 :: Generator (Signal Int)
+            input1 = yieldMany [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 1, 1] .| mapC Signal
 
-            input2 :: Signal Int
-            input2 = shift 1 input1
+            input2 :: Generator (Signal Int)
+            input2 = input1 .| shift (Signal 1)
 
-            expected :: [Int]
-            expected = [0, 0, 0, 0, 2, 0, 0, 0, 3, 0, -2, 0]
+            expected :: [Signal Int]
+            expected = fmap Signal [1,1,1,1,2,4,4,4,6,9,3,1]
         in
         it "output = input * delta" $
             runConduitPure ( operator (*) input1 input2 .| sinkList )
@@ -178,47 +179,39 @@ spec = describe "Testing signal processing operators" $ do
 
     context "shifting one item" $
         let
-            input :: Signal (Maybe Int)
-            input = yieldMany [Just 1, Just 2, Just 3, Just 4]
+            input :: Generator (Signal Int)
+            input = yieldMany [Signal 1, Signal 2, Signal 3, Signal 4]
 
-            expected :: [Maybe Int]
-            expected = [Nothing, Just 1, Just 2, Just 3, Just 4]
+            expected :: [Signal Int]
+            expected = Undefined : [Signal 1, Signal 2, Signal 3, Signal 4]
         in
         it "shifted input" $
-            runConduitPure ( input .| shift' Nothing .| sinkList )
+            runConduitPure ( input .| shift Undefined .| sinkList )
         `shouldBe` expected
 
     context "mixing signal with a shift of itself" $
         let
-            input1 :: Signal (Maybe Int)
-            input1 = yieldMany [Just 1, Just 2, Just 3, Just 4, Just 5, Just 6]
+            input1 :: Generator (Signal Int)
+            input1 = yieldMany $ fmap Signal [1, 2, 3, 4, 5, 6]
 
-            input2 :: Signal (Maybe Int)
-            input2 = input1 .| shift' Nothing
+            input2 :: Generator (Signal Int)
+            input2 = input1 .| shift Undefined
 
-            opAdd :: (Maybe Int) -> (Maybe Int) -> (Maybe Int)
-            opAdd (Just a) (Just b) = Just (a + b)
-            opAdd _ _ = Nothing
-
-            expected = [Nothing, Just 3, Just 5, Just 7, Just 9, Just 11]
+            expected = [Undefined, Signal 3, Signal 5, Signal 7, Signal 9, Signal 11]
         in
         it "output = odd numbers" $
-            runConduitPure ( operator opAdd input1 input2 .| sinkList )
+            runConduitPure ( opAdd input1 input2 .| sinkList )
         `shouldBe` expected
 
     context "loopback shifted signal into adder" $
         let
-            input :: Signal (Maybe Int)
-            input = yieldMany [Just 1, Just 2, Just 3, Just 4, Just 5, Just 6]
+            input :: Generator (Signal Int)
+            input = yieldMany $ fmap Signal [1, 2, 3, 4, 5, 6]
 
-            output :: Signal (Maybe Int)
-            output = operator opAdd input ( output .| shift' (Just 0) )
+            output :: Generator (Signal Int)
+            output = opAdd input ( output .| shift (Signal 0) )
 
-            opAdd :: (Maybe Int) -> (Maybe Int) -> (Maybe Int)
-            opAdd (Just a) (Just b) = Just (a + b)
-            opAdd _ _ = Nothing
-
-            expected = [Just 1, Just 3, Just 6, Just 10, Just 15, Just 21]
+            expected = fmap Signal [1, 3, 6, 10, 15, 21]
         in
         it "y(n) = x(n) + y(n-1), y(0) = 0" $
             runConduitPure ( output .| sinkList )
@@ -226,34 +219,24 @@ spec = describe "Testing signal processing operators" $ do
 
     context "integrating input" $
         let
-            x :: Signal (Maybe Rational)
-            x = genSinusoid 100 200 .| mapC (\val -> Just (fromIntegral val)) .| takeC 120
+            x :: Generator (Signal Rational)
+            x = genSinusoid 100 200 .| convertC fromIntegral .| takeC 120
             
-            y :: Signal (Maybe Rational)
-            y = operator opAdd yPrev (operator opAdd x xPrev .| tfScale (5 % 10))
+            y :: Generator (Signal Rational)
+            y = opAdd yPrev (opAdd x xPrev .| tfScale (5 % 10))
 
-            xPrev = x .| shift' (Just 0)
-            yPrev = y .| shift' (Just 0)
+            xPrev = x .| shift (Signal (0 :: Rational))
+            yPrev = y .| shift (Signal (0 :: Rational))
 
-            opAdd :: (Maybe Rational) -> (Maybe Rational) -> (Maybe Rational)
-            opAdd (Just a) (Just b) = Just (a + b)
-            opAdd _ _ = Nothing
+            convertC fromType = mapC converter where
+                converter signal = case signal of
+                    Undefined -> Undefined
+                    Signal value -> Signal (fromType value)
 
-            toFloat :: Transfer (Maybe Rational) Float
-            toFloat = do
-                maybeVal <- await
-                case maybeVal of
-                    Nothing -> return ()
-                    Just val -> case val of
-                        Nothing -> toFloat
-                        Just val2 -> do
-                            yield (fromRational val2)
-                            toFloat
-                        
-            expected = [0.1, 0.2]
+            expected = fmap Signal [0.1, 0.2 :: Float]
         in
         it "y = y_prev + 0.5 * (x + x_prev), y_0 = 0" $
-            runConduitPure ( y .| toFloat .| sinkList )
+            runConduitPure ( y .| convertC fromRational .| sinkList )
         `shouldBe` expected
 
     context "IIR filter with scanlC" $
@@ -339,16 +322,16 @@ spec = describe "Testing signal processing operators" $ do
 
     context "yielding random sequence" $
         let
-            expected = [46,50,42,42,40,42,47,47,48,41]
+            expected = fmap Signal [46,50,42,42,40,42,47,47,48,41 :: Int]
         in
-        it "should generate predicted int sequence" $ do
-            x <- (runConduit (genRandom (40, 50) 2 .| takeC 10 .| sinkList))
-            x `shouldBe` expected
+        it "should generate predicted int sequence" $
+            (runConduitPure (genRandom (40, 50) 2 .| takeC 10 .| sinkList))
+        `shouldBe` expected
 
     context "sequencing int" $
         let
-            expected = [3, 4, 5, 6, 7]
+            expected = fmap Signal [3, 4, 5, 6, 7 :: Integer]
         in
-        it "should count from 3 up to 7" $ do
+        it "should count from 3 up to 7" $
             (runConduitPure (genSequence 3 .| takeC 5 .| sinkList))
         `shouldBe` expected
