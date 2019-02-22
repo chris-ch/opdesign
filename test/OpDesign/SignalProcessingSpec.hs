@@ -10,7 +10,7 @@ import Control.Monad.State (State, evalState, get, put)
 import Data.Ratio ((%))
 
 import Conduit (ConduitT)
-import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC)
+import Conduit (yield, yieldMany, runConduit, runConduitPure, mapC, takeC, dropC)
 import Conduit (await, scanlC, foldlC, slidingWindowC, sinkList)
 import Conduit ((.|))
 
@@ -23,7 +23,7 @@ import qualified Conduit as DC (ZipSource(..), getZipSource)
 
 import OpDesign.SignalProcessing (Signal(..), Generator, genSinusoid, shift, operator, genStep, genSquare, genConstant, genSequence)
 import OpDesign.SignalProcessing (tfNegate, tfIntegrate, tfIIR, genRandom, tfGroupBy, tfCounter, tfScale)
-import OpDesign.SignalProcessing (opAdd)
+import OpDesign.SignalProcessing (opAdd, convertC)
 
 spec :: Spec
 spec = describe "Testing signal processing operators" $ do
@@ -71,8 +71,8 @@ spec = describe "Testing signal processing operators" $ do
 
     context "yielding sinusoidal sequence" $
         it "should generate predicted int sequence" $
-            runConduitPure (genSinusoid 100 200 .| takeC 120 .| sinkList)
-        `shouldBe` fmap Signal [169, 175, 181, 186]
+            runConduitPure (genSinusoid 100 200 .| takeC 120 .| (dropC 116 >> sinkList) )
+        `shouldBe` fmap Signal [169, 175, 181, 186 :: Int]
 
     context "yielding step signal" $
         it "should generate predicted int sequence" $
@@ -228,15 +228,10 @@ spec = describe "Testing signal processing operators" $ do
             xPrev = x .| shift (Signal (0 :: Rational))
             yPrev = y .| shift (Signal (0 :: Rational))
 
-            convertC fromType = mapC converter where
-                converter signal = case signal of
-                    Undefined -> Undefined
-                    Signal value -> Signal (fromType value)
-
-            expected = fmap Signal [0.1, 0.2 :: Float]
+            expected = fmap Signal [1477.5, 1649.5, 1827.5, 2011.0 :: Float]
         in
         it "y = y_prev + 0.5 * (x + x_prev), y_0 = 0" $
-            runConduitPure ( y .| convertC fromRational .| sinkList )
+            runConduitPure ( y .| convertC fromRational .| (dropC 116 >> sinkList) )
         `shouldBe` expected
 
     context "IIR filter with scanlC" $
