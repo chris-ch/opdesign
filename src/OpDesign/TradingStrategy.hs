@@ -1,8 +1,8 @@
 module OpDesign.TradingStrategy where
 
 import Prelude (Eq, Show, Monad, Rational, Integer, Double, Maybe(..))
-import Prelude (($), (&&), (>=), (<), (>), (==), (+), (-), (++))
-import Prelude (return, otherwise, show)
+import Prelude (($), (&&), (>=), (<), (>), (==), (+), (-), (++), (*))
+import Prelude (return, otherwise, show, fromIntegral)
 
 import Data.Time.LocalTime (TimeOfDay(..))
 import Data.Time (UTCTime(..))
@@ -67,7 +67,7 @@ scalpingStrategyC = do
             evaluateStrategy portfolioPosition orderBook maybeLastOrder = case orderBook of
                 OrderBook {bidVolume = Just _, bidPrice = Just bp, askPrice = Just ap, askVolume = Just _} -> case quantity portfolioPosition of
                     -- No position
-                    0   | extractTime (date orderBook) >= (TimeOfDay 16 30 0) && extractTime (date orderBook) < (TimeOfDay 20 30 0) -> 
+                    0   | extractTime (date orderBook) >= (TimeOfDay 12 30 0) && extractTime (date orderBook) < (TimeOfDay 20 30 0) -> 
                             -- Enters position
                             Just $ buyOrder (date orderBook) 1 ap
                         ------
@@ -104,3 +104,17 @@ buyOrder ts vol px = LimitOrder {
 
 scalpingStrategy :: (Monad m) => ConduitT OrderBook (LimitOrder, SinglePortfolioPosition) m ()
 scalpingStrategy = evalStateC (SinglePortfolioPosition {quantity = 0}, Nothing) $ scalpingStrategyC
+
+legProfit :: (Monad m) => ConduitT (LimitOrder, SinglePortfolioPosition) (UTCTime, Double) m ()
+legProfit = do
+    input1 <- await
+    case input1 of
+        Nothing -> return ()
+        Just (lo1, sp1) -> do
+            input2 <- await
+            case input2 of
+                Nothing -> return ()
+                Just (lo2, sp2) -> do
+                    let pnl = (fromIntegral (quantity sp2 - quantity sp1)) * (price lo1 - price lo2)
+                    yield (timestamp lo2, (fromRat pnl :: Double))
+                    legProfit

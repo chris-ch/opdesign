@@ -22,7 +22,7 @@ import Data.Conduit.Combinators()
 import qualified Conduit as DC (ZipSource(..), getZipSource)
 
 import OpDesign.SignalProcessing (Signal(..), Generator, genSinusoid, shift, operator, genStep, genSquare, genConstant, genSequence)
-import OpDesign.SignalProcessing (tfNegate, tfIntegrate, tfIIR, genRandom, tfGroupBy, tfCounter, tfScale)
+import OpDesign.SignalProcessing (tfNegate, tfIIR, genRandom, tfGroupBy, tfCounter, tfScale, tfIntegrate)
 import OpDesign.SignalProcessing (opAdd, convertC)
 
 spec :: Spec

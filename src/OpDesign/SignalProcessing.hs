@@ -14,7 +14,7 @@ import Control.Monad.Trans.State.Strict (StateT)
 
 import System.Random (randomRs, mkStdGen)
 
-import qualified Conduit as DC (ZipSource(..), getZipSource)
+import qualified Conduit as DC (ZipSource(..), ZipConduit(..), getZipSource, getZipConduit)
 
 type Generator a = ConduitT () a Identity ()
 type Transfer a b = ConduitT a b Identity ()
@@ -55,6 +55,12 @@ operator func source1 source2 = DC.getZipSource $ applyFunc <$> DC.ZipSource sou
                     where
                         applyFunc (Signal a) (Signal b) = Signal (func a b)
                         applyFunc _ _ = Undefined
+
+-- operator' :: (a -> a -> a) -> Transfer (Signal a) (Signal a)-> Transfer (Signal a) (Signal a) -> Generator (Signal a)
+-- operator' func source1 source2 = DC.getZipConduit $ applyFunc <$> DC.ZipConduit source1 <*> DC.ZipConduit source2
+--                     where
+--                         applyFunc (Signal a) (Signal b) = Signal (func a b)
+--                         applyFunc _ _ = Undefined
 
 -- period is measured in number of samples
 genSinusoid :: Int -> Int -> Generator (Signal Int)

@@ -1,14 +1,15 @@
 module OpDesign.OrderBookStream where
 
 import Prelude (Monad, Maybe(..), Rational, String, Int, Bool)
-import Prelude (return, maybe, last, toRational, round)
+import Prelude (return, maybe, last, toRational, round, last, head)
 import Prelude ((.), ($), (==), (>>=), (+), (/))
 
 import qualified Data.Conduit.Text as CText (lines)
 
 import Data.List (dropWhileEnd)
 import Data.Text (unpack)
-import Data.Time()
+import Data.Time(UTCTime(..), Day, utctDay)
+import Data.Time.Calendar (toGregorian)
 import Data.ByteString (ByteString)
 import Data.Time (UTCTime(..), addUTCTime)
 import Data.Time.LocalTime (TimeOfDay(..), timeToTimeOfDay, timeOfDayToTime)
@@ -116,3 +117,14 @@ sequencer period nextVal = do
 
 onlyValid :: (Monad m) => ConduitT OrderBook OrderBook m ()
 onlyValid = filterC isValid
+
+tradingHours :: Monad m => ConduitT OrderBook (Maybe (UTCTime, UTCTime)) m ()
+tradingHours = groupBy sameDay 
+    .| mapC firstAndLast
+        where
+            
+            sameDay ob1 ob2 =  toGregorian (utctDay (date ob1)) == toGregorian (utctDay (date ob2))
+
+            firstAndLast [] = Nothing
+            firstAndLast [unique] = Just (date unique, date unique)
+            firstAndLast group = Just (date (head group), date (last group))
